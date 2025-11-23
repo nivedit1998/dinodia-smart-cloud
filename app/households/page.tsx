@@ -39,9 +39,9 @@ export default async function HouseholdsPage() {
           Households · Dinodia Smart Cloud
         </h1>
         <p style={{ marginBottom: '24px', color: '#6b7280' }}>
-          Each household represents a property or flat. In future, you&apos;ll have separate
-          single-household homes and HMOs, each with their own Home Assistant hub and media
-          integrations.
+          Each household represents a property or flat. Later you&apos;ll have separate
+          single-household homes and HMOs, each with their own Home Assistant hub, tenant
+          logins, and media integrations.
         </p>
 
         {households.length === 0 ? (
@@ -120,6 +120,7 @@ export default async function HouseholdsPage() {
                       gridTemplateColumns: '1fr',
                       rowGap: '8px',
                       fontSize: '0.85rem',
+                      marginBottom: '10px',
                     }}
                   >
                     <div
@@ -162,7 +163,58 @@ export default async function HouseholdsPage() {
                     </div>
                   </div>
 
-                  {/* Future: buttons for "Configure Home Assistant", "Manage tenants", etc. */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      marginTop: '4px',
+                    }}
+                  >
+                    <a
+                      href={`/households/${h.id}/home-assistant`}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '9999px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '0.8rem',
+                        textDecoration: 'none',
+                        color: '#111827',
+                      }}
+                    >
+                      ⚙️ Configure Home Assistant
+                    </a>
+
+                    <a
+                      href={`/households/${h.id}/devices`}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '9999px',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '0.8rem',
+                        textDecoration: 'none',
+                        color: '#111827',
+                      }}
+                    >
+                      💡 View devices
+                    </a>
+
+                    {h.spotifyToken && (
+                      <a
+                        href="/spotify/now-playing"
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '9999px',
+                          border: '1px solid #e5e7eb',
+                          fontSize: '0.8rem',
+                          textDecoration: 'none',
+                          color: '#111827',
+                        }}
+                      >
+                        🎧 Spotify Now Playing
+                      </a>
+                    )}
+                  </div>
                 </div>
               );
             })}

@@ -3,12 +3,13 @@ type SearchParams = {
   spotify_error?: string;
 };
 
-export default function Home({
+export default async function Home({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
-  const spotifyError = searchParams?.spotify_error;
+  const resolvedParams = await searchParams;
+  const spotifyError = resolvedParams?.spotify_error;
 
   return (
     <main

@@ -1,15 +1,16 @@
 // app/api/spotify/login/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { buildSpotifyAuthUrl } from '@/lib/spotify';
 import crypto from 'crypto';
 
 const STATE_COOKIE_NAME = 'spotify_oauth_state';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   // Generate random state and store in cookie
   const state = crypto.randomBytes(16).toString('hex');
+  const origin = req.nextUrl.origin;
 
-  const authUrl = buildSpotifyAuthUrl(state);
+  const authUrl = buildSpotifyAuthUrl(state, origin);
 
   const response = NextResponse.redirect(authUrl);
   response.cookies.set(STATE_COOKIE_NAME, state, {

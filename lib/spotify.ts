@@ -18,26 +18,47 @@ export const SPOTIFY_SCOPES = [
 const DEFAULT_OWNER_EMAIL = 'owner@dinodia.local';
 const DEFAULT_HOUSEHOLD_NAME = 'Default Household';
 
-// Single source of truth for redirect URI
-export function getSpotifyRedirectUri() {
-  const uri =
-    process.env.SPOTIFY_REDIRECT_URI ??
-    `${getBaseUrl()}/api/spotify/callback`;
+const FALLBACK_BASE_URL = 'http://127.0.0.1:3000';
 
-  return uri;
+function normalizeOrigin(value: string) {
+  return value.replace(/\/$/, '');
 }
 
-// Base URL (for general links if needed)
-export function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_BASE_URL ?? 'http://127.0.0.1:3000';
+export function getBaseUrl(origin?: string) {
+  if (origin) {
+    return normalizeOrigin(origin);
+  }
+
+  if (process.env.NEXT_PUBLIC_BASE_URL) {
+    return normalizeOrigin(process.env.NEXT_PUBLIC_BASE_URL);
+  }
+
+  if (process.env.SPOTIFY_REDIRECT_URI) {
+    try {
+      const redirectUrl = new URL(process.env.SPOTIFY_REDIRECT_URI);
+      return normalizeOrigin(redirectUrl.origin);
+    } catch (error) {
+      console.warn('Invalid SPOTIFY_REDIRECT_URI, falling back to default', error);
+    }
+  }
+
+  return FALLBACK_BASE_URL;
 }
 
-export function buildSpotifyAuthUrl(state: string) {
+export function getSpotifyRedirectUri(origin?: string) {
+  if (process.env.SPOTIFY_REDIRECT_URI) {
+    return process.env.SPOTIFY_REDIRECT_URI;
+  }
+
+  return `${getBaseUrl(origin)}/api/spotify/callback`;
+}
+
+export function buildSpotifyAuthUrl(state: string, origin?: string) {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.SPOTIFY_CLIENT_ID ?? '',
     scope: SPOTIFY_SCOPES,
-    redirect_uri: getSpotifyRedirectUri(),
+    redirect_uri: getSpotifyRedirectUri(origin),
     state,
   });
 
@@ -70,7 +91,7 @@ export async function ensureDefaultHousehold() {
 }
 
 // Exchange auth code for tokens
-export async function exchangeCodeForTokens(code: string) {
+export async function exchangeCodeForTokens(code: string, origin?: string) {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
@@ -83,7 +104,7 @@ export async function exchangeCodeForTokens(code: string) {
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
-    redirect_uri: getSpotifyRedirectUri(),
+    redirect_uri: getSpotifyRedirectUri(origin),
   });
 
   const res = await fetch(SPOTIFY_TOKEN_URL, {
@@ -160,6 +181,7 @@ export async function getSpotifyProfileForDefaultHousehold() {
 
   if (!record) return null;
 
+  // (No refresh logic yet – we’ll add token refresh later when needed)
   const res = await fetch(`${SPOTIFY_API_BASE}/me`, {
     headers: {
       Authorization: `Bearer ${record.accessToken}`,
@@ -177,4 +199,46 @@ export async function getSpotifyProfileForDefaultHousehold() {
     email?: string;
     id: string;
   };
+}
+
+export type SpotifyNowPlaying = {
+  is_playing: boolean;
+  item: {
+    name: string;
+    artists: { name: string }[];
+    album: { name: string; images?: { url: string }[] };
+    duration_ms: number;
+  } | null;
+  progress_ms?: number;
+};
+
+// Get Now Playing info for default household
+export async function getNowPlayingForDefaultHousehold(): Promise<SpotifyNowPlaying | null> {
+  const household = await ensureDefaultHousehold();
+
+  const record = await prisma.spotifyToken.findUnique({
+    where: { householdId: household.id },
+  });
+
+  if (!record) return null;
+
+  const res = await fetch(`${SPOTIFY_API_BASE}/me/player/currently-playing`, {
+    headers: {
+      Authorization: `Bearer ${record.accessToken}`,
+    },
+  });
+
+  if (res.status === 204) {
+    // Nothing currently playing
+    return null;
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('Error fetching now playing', text);
+    return null;
+  }
+
+  const data = (await res.json()) as SpotifyNowPlaying;
+  return data;
 }
