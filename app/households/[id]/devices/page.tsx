@@ -1,7 +1,8 @@
 // app/households/[id]/devices/page.tsx
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
-import { getDevicesWithMetadata, type DinodiaDevice } from '@/lib/homeAssistant';
+import { DinodiaDevice, getDevicesWithMetadata } from '@/lib/homeAssistant';
+import { DevicesTableWithFilters } from '@/app/components/DevicesTableWithFilters';
 
 type PageProps = {
   params: Promise<{
@@ -37,32 +38,12 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
     error = 'Home Assistant hub is not configured for this household yet.';
   } else {
     const result = await getDevicesWithMetadata(householdId);
-    if (result.error) {
-      error = result.error;
+    if (!result.ok) {
+      error = result.error ?? 'Failed to load devices from Home Assistant';
+      devices = result.devices ?? [];
+    } else {
+      devices = result.devices ?? [];
     }
-    devices = result.devices ?? [];
-  }
-
-  // Simple domain ordering: lights & switches first, then others
-  const domainOrder = ['light', 'switch', 'cover', 'sensor', 'binary_sensor'];
-
-  if (devices) {
-    devices.sort((a, b) => {
-      const ai = domainOrder.indexOf(a.domain);
-      const bi = domainOrder.indexOf(b.domain);
-      const ad = ai === -1 ? 999 : ai;
-      const bd = bi === -1 ? 999 : bi;
-      if (ad !== bd) return ad - bd;
-
-      // Secondary sort: area then name
-      const an = a.areaName ?? '';
-      const bn = b.areaName ?? '';
-      if (an !== bn) return an.localeCompare(bn);
-
-      const aname = a.friendlyName ?? '';
-      const bname = b.friendlyName ?? '';
-      return aname.localeCompare(bname);
-    });
   }
 
   return (
@@ -115,7 +96,8 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
         >
           These entities are coming directly from the Home Assistant hub configured for
           this household, grouped using your <strong>Areas</strong> and{' '}
-          <strong>Labels</strong> from Home Assistant&apos;s registries.
+          <strong>Labels</strong> from Home Assistant. Lights and switches can be toggled
+          from here.
         </p>
 
         {!household.homeAssistant && (
@@ -146,178 +128,10 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
         )}
 
         {devices && devices.length > 0 && (
-          <div
-            style={{
-              borderRadius: '20px',
-              background: '#ffffff',
-              boxShadow: '0 16px 30px rgba(15, 23, 42, 0.08)',
-              padding: '16px 18px',
-              overflowX: 'auto',
-            }}
-          >
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '0.85rem',
-                minWidth: '720px',
-              }}
-            >
-              <thead>
-                <tr>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Name
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Entity ID
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Domain
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Area
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Labels
-                  </th>
-                  <th
-                    style={{
-                      textAlign: 'left',
-                      padding: '8px',
-                      borderBottom: '1px solid #e5e7eb',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                    }}
-                  >
-                    State
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {devices.map((d) => (
-                  <tr key={d.entityId}>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                      }}
-                    >
-                      {d.friendlyName}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                        color: '#6b7280',
-                        fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, monospace',
-                      }}
-                    >
-                      {d.entityId}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                        color: '#4b5563',
-                      }}
-                    >
-                      {d.domain}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                        color: d.areaName ? '#111827' : '#9ca3af',
-                      }}
-                    >
-                      {d.areaName ?? '—'}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                      }}
-                    >
-                      {d.labels.length === 0 ? (
-                        <span style={{ color: '#9ca3af' }}>—</span>
-                      ) : (
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '4px',
-                          }}
-                        >
-                          {d.labels.map((label) => (
-                            <span
-                              key={label}
-                              style={{
-                                padding: '2px 6px',
-                                borderRadius: '9999px',
-                                background: '#eef2ff',
-                                color: '#4f46e5',
-                              }}
-                            >
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px',
-                        borderBottom: '1px solid #f3f4f6',
-                        color: d.state === 'on' ? '#16a34a' : '#6b7280',
-                      }}
-                    >
-                      {d.state}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DevicesTableWithFilters
+            householdId={householdId}
+            devices={devices as any}
+          />
         )}
 
         {devices && devices.length === 0 && !error && (

@@ -101,7 +101,7 @@ export async function callHomeAssistantAPI<T = unknown>(
     try {
       data = JSON.parse(text) as T;
     } catch {
-      // Some endpoints (like /api/) return small JSON we can still parse.
+      // Fallback if response isn't JSON (shouldn't really happen for /api/*)
       data = JSON.parse(text || '{}') as T;
     }
 
@@ -112,6 +112,68 @@ export async function callHomeAssistantAPI<T = unknown>(
       ok: false,
       status: 0,
       error: err?.message || 'Unknown error calling Home Assistant API',
+    };
+  }
+}
+
+/**
+ * POST helper for calling Home Assistant services:
+ *   /api/services/{domain}/{service}
+ * Example: domain "homeassistant", service "toggle"
+ */
+export async function callHomeAssistantService<T = unknown>(
+  householdId: number,
+  domain: string,
+  service: string,
+  payload: Record<string, any>,
+): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  const instance = await getHomeAssistantInstanceForHousehold(householdId);
+
+  if (!instance) {
+    return {
+      ok: false,
+      status: 0,
+      error: 'No Home Assistant instance configured for this household.',
+    };
+  }
+
+  const base = instance.baseUrl.replace(/\/+$/, '');
+  const url = `${base}/api/services/${domain}/${service}`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${instance.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        error: text || `Service call failed with status ${res.status}`,
+      };
+    }
+
+    let data: T | undefined;
+    try {
+      data = text ? (JSON.parse(text) as T) : undefined;
+    } catch {
+      data = undefined;
+    }
+
+    return { ok: true, status: res.status, data };
+  } catch (err: any) {
+    console.error('[Dinodia] Error calling Home Assistant service:', err);
+    return {
+      ok: false,
+      status: 0,
+      error: err?.message || 'Unknown error calling Home Assistant service',
     };
   }
 }
@@ -188,6 +250,11 @@ export async function renderHomeAssistantTemplate<T = unknown>(
  * Uses the /api/template endpoint with Jinja helpers:
  *   - area_name(entity_id)
  *   - labels(entity_id) | map('label_name')
+ *
+ * This picks up labels applied at:
+ *   - entity level
+ *   - device level
+ *   - area level
  */
 export async function getDevicesWithMetadata(
   householdId: number,
