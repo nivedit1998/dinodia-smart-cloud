@@ -13,35 +13,77 @@ export const SPOTIFY_SCOPES = [
   'user-read-private',
 ].join(' ');
 
-// Helper: base URL (for redirects)
-export function getBaseUrl() {
-  // In dev, this will be http://localhost:3000
-  return process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
+// Default owner + household for now.
+// Later, you’ll replace this with real auth & multi-household selection.
+const DEFAULT_OWNER_EMAIL = 'owner@dinodia.local';
+const DEFAULT_HOUSEHOLD_NAME = 'Default Household';
+
+// Single source of truth for redirect URI
+export function getSpotifyRedirectUri() {
+  const uri =
+    process.env.SPOTIFY_REDIRECT_URI ??
+    `${getBaseUrl()}/api/spotify/callback`;
+
+  return uri;
 }
 
-// Build the auth URL
+// Base URL (for general links if needed)
+export function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_BASE_URL ?? 'http://127.0.0.1:3000';
+}
+
 export function buildSpotifyAuthUrl(state: string) {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: process.env.SPOTIFY_CLIENT_ID ?? '',
     scope: SPOTIFY_SCOPES,
-    redirect_uri: `${getBaseUrl()}/api/spotify/callback`,
+    redirect_uri: getSpotifyRedirectUri(),
     state,
   });
 
   return `${SPOTIFY_AUTH_URL}?${params.toString()}`;
 }
 
+// Create or get the default owner + household
+export async function ensureDefaultHousehold() {
+  const owner = await prisma.user.upsert({
+    where: { email: DEFAULT_OWNER_EMAIL },
+    update: {},
+    create: {
+      email: DEFAULT_OWNER_EMAIL,
+      name: 'Default Owner',
+    },
+  });
+
+  const household = await prisma.household.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      name: DEFAULT_HOUSEHOLD_NAME,
+      ownerId: owner.id,
+      plan: 'SINGLE_HOUSEHOLD',
+    },
+  });
+
+  return household;
+}
+
 // Exchange auth code for tokens
 export async function exchangeCodeForTokens(code: string) {
-  const basicAuth = Buffer.from(
-    `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
-  ).toString('base64');
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Spotify client ID/secret not set');
+  }
+
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
-    redirect_uri: `${getBaseUrl()}/api/spotify/callback`,
+    redirect_uri: getSpotifyRedirectUri(),
   });
 
   const res = await fetch(SPOTIFY_TOKEN_URL, {
@@ -78,25 +120,18 @@ export async function exchangeCodeForTokens(code: string) {
   };
 }
 
-// Save tokens for landlord (id = 1 for now)
-export async function saveSpotifyTokensForLandlord(tokens: {
+// Save tokens for the default household (id=1 for now)
+export async function saveSpotifyTokensForDefaultHousehold(tokens: {
   accessToken: string;
   refreshToken: string;
   tokenType: string;
   scope: string;
   expiresAt: Date;
 }) {
-  // Ensure landlord exists (ID 1)
-  const landlord = await prisma.landlord.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
-      email: 'landlord@example.com', // placeholder, can change later
-    },
-  });
+  const household = await ensureDefaultHousehold();
 
   await prisma.spotifyToken.upsert({
-    where: { landlordId: landlord.id },
+    where: { householdId: household.id },
     update: {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -105,7 +140,7 @@ export async function saveSpotifyTokensForLandlord(tokens: {
       expiresAt: tokens.expiresAt,
     },
     create: {
-      landlordId: landlord.id,
+      householdId: household.id,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       tokenType: tokens.tokenType,
@@ -115,15 +150,16 @@ export async function saveSpotifyTokensForLandlord(tokens: {
   });
 }
 
-// Get Spotify profile (to show on UI)
-export async function getSpotifyProfileForLandlord() {
+// Get Spotify profile for default household's token
+export async function getSpotifyProfileForDefaultHousehold() {
+  const household = await ensureDefaultHousehold();
+
   const record = await prisma.spotifyToken.findUnique({
-    where: { landlordId: 1 },
+    where: { householdId: household.id },
   });
 
   if (!record) return null;
 
-  // (No refresh logic yet – we’ll add later if needed)
   const res = await fetch(`${SPOTIFY_API_BASE}/me`, {
     headers: {
       Authorization: `Bearer ${record.accessToken}`,

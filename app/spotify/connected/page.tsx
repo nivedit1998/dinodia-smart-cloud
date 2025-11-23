@@ -1,10 +1,12 @@
 // app/spotify/connected/page.tsx
-import { getSpotifyProfileForLandlord } from '@/lib/spotify';
+import { getSpotifyProfileForDefaultHousehold, ensureDefaultHousehold } from '@/lib/spotify';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SpotifyConnectedPage() {
-  const profile = await getSpotifyProfileForLandlord();
+  const profile = await getSpotifyProfileForDefaultHousehold();
+  const household = await ensureDefaultHousehold();
 
   return (
     <main
@@ -23,7 +25,7 @@ export default async function SpotifyConnectedPage() {
           padding: '32px',
           borderRadius: '24px',
           boxShadow: '0 20px 40px rgba(15, 23, 42, 0.12)',
-          maxWidth: '440px',
+          maxWidth: '480px',
           width: '100%',
         }}
       >
@@ -38,10 +40,14 @@ export default async function SpotifyConnectedPage() {
           Spotify connected ✅
         </h1>
 
+        <p style={{ marginBottom: '8px', color: '#6b7280' }}>
+          Household: <strong>{household.name}</strong> ({household.plan})
+        </p>
+
         {profile ? (
           <>
             <p style={{ marginBottom: '16px', color: '#6b7280' }}>
-              Dinodia Smart Cloud is now linked to your Spotify account.
+              Dinodia Smart Cloud is now linked to this household&apos;s Spotify account.
             </p>
             <div
               style={{
@@ -67,9 +73,9 @@ export default async function SpotifyConnectedPage() {
               )}
             </div>
             <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-              Soon, Dinodia dashboards in your rentals will be able to show
-              what&apos;s playing, let you pause/resume, and sync scenes with your
-              music.
+              For single-household plans, this will usually be the main tenant&apos;s Spotify
+              account, so your Dinodia tablets and dashboards can show what&apos;s playing and
+              sync scenes with music.
             </p>
           </>
         ) : (
@@ -78,11 +84,27 @@ export default async function SpotifyConnectedPage() {
               We couldn&apos;t fetch your Spotify profile just now.
             </p>
             <p style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-              The connection might have expired or failed. Try going back and
-              reconnecting your Spotify account.
+              The connection might have expired or failed. Try going back to the home page
+              and reconnecting your Spotify account.
             </p>
           </>
         )}
+
+        <Link
+          href="/"
+          style={{
+            display: 'inline-flex',
+            marginTop: '24px',
+            padding: '10px 14px',
+            borderRadius: '9999px',
+            border: '1px solid #e5e7eb',
+            textDecoration: 'none',
+            fontSize: '0.9rem',
+            color: '#111827',
+          }}
+        >
+          ← Back to Dinodia Smart Cloud
+        </Link>
       </div>
     </main>
   );

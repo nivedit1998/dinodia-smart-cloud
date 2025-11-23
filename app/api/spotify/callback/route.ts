@@ -1,6 +1,6 @@
 // app/api/spotify/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCodeForTokens, saveSpotifyTokensForLandlord } from '@/lib/spotify';
+import { exchangeCodeForTokens, saveSpotifyTokensForDefaultHousehold } from '@/lib/spotify';
 
 const STATE_COOKIE_NAME = 'spotify_oauth_state';
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const tokens = await exchangeCodeForTokens(code);
-    await saveSpotifyTokensForLandlord(tokens);
+    await saveSpotifyTokensForDefaultHousehold(tokens);
 
     // Clear state cookie
     const res = NextResponse.redirect('/spotify/connected');

@@ -1,6 +1,4 @@
 // app/page.tsx
-import Link from 'next/link';
-
 type SearchParams = {
   spotify_error?: string;
 };
@@ -29,13 +27,13 @@ export default function Home({
           padding: '32px',
           borderRadius: '24px',
           boxShadow: '0 20px 40px rgba(15, 23, 42, 0.12)',
-          maxWidth: '420px',
+          maxWidth: '480px',
           width: '100%',
         }}
       >
         <h1
           style={{
-            fontSize: '1.8rem',
+            fontSize: '1.9rem',
             marginBottom: '8px',
             fontWeight: 600,
             color: '#111827',
@@ -44,8 +42,9 @@ export default function Home({
           Dinodia Smart Cloud
         </h1>
         <p style={{ marginBottom: '24px', color: '#6b7280' }}>
-          Connect your Spotify account so Dinodia can show what&apos;s playing in
-          your smart home dashboards.
+          Cloud control for your Dinodia Smart Living homes. We&apos;ll start with
+          Spotify for single-household plans, then add YouTube, voice assistants, and
+          full Home Assistant hub control for each flat.
         </p>
 
         {spotifyError && (
@@ -80,15 +79,29 @@ export default function Home({
             marginBottom: '8px',
           }}
         >
-          {/* You can replace this with a Spotify logo later */}
           <span>🎧</span>
-          <span>Connect Spotify</span>
+          <span>Connect Spotify for default household</span>
         </a>
 
-        <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
-          We never see your Spotify password. You&apos;ll log in securely on Spotify.com,
-          and you can revoke access at any time from your Spotify account settings.
-        </p>
+        <a
+          href="/households"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            padding: '10px 14px',
+            borderRadius: '9999px',
+            border: '1px solid #e5e7eb',
+            color: '#111827',
+            textDecoration: 'none',
+            fontSize: '0.9rem',
+            width: '100%',
+            marginTop: '8px',
+          }}
+        >
+          🏠 View households
+        </a>
 
         <div
           style={{
@@ -103,9 +116,10 @@ export default function Home({
             Coming soon to Dinodia Smart Cloud:
           </p>
           <ul style={{ paddingLeft: '20px', margin: 0 }}>
-            <li>Alexa &amp; Google Home voice integrations</li>
-            <li>YouTube / YouTube Music connectivity</li>
-            <li>Multi-property landlord dashboards</li>
+            <li>Link each household to its own Home Assistant Green hub</li>
+            <li>Per-tenant logins for HMOs and room-by-room dashboards</li>
+            <li>Alexa / Google Home linking for each property</li>
+            <li>YouTube / YouTube Music integration</li>
           </ul>
         </div>
       </div>
