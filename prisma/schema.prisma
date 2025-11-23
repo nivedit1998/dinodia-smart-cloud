@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Landlord {
+  id    Int     @id @default(autoincrement())
+  email String? @unique
+
+  spotifyToken SpotifyToken?
+  // later: you can add other integration relationships here
+}
+
+model SpotifyToken {
+  id           Int      @id @default(autoincrement())
+  landlordId   Int      @unique
+  landlord     Landlord @relation(fields: [landlordId], references: [id])
+
+  accessToken  String
+  refreshToken String
+  scope        String
+  tokenType    String
+  expiresAt    DateTime
+}
