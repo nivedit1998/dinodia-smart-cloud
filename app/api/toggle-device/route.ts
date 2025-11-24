@@ -1,6 +1,8 @@
 // app/api/toggle-device/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { callHomeAssistantService } from '@/lib/homeAssistant';
+import { getCurrentUser } from '@/lib/auth';
+import { getAccessibleDevicesForUser } from '@/lib/tenants';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +19,14 @@ export async function POST(req: NextRequest) {
     const householdId = Number(body?.householdId);
     const entityId = body?.entity_id as string | undefined;
     let domain = body?.domain as string | undefined;
+
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
 
     if (!householdId || Number.isNaN(householdId)) {
       return NextResponse.json(
@@ -44,10 +54,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const accessResult = await getAccessibleDevicesForUser(
+      householdId,
+      user.id,
+    );
+
+    if (!accessResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: accessResult.error },
+        { status: 403 },
+      );
+    }
+
+    const targetDevice = accessResult.devices.find(
+      (device) => device.entityId === entityId,
+    );
+
+    if (!targetDevice) {
+      return NextResponse.json(
+        { ok: false, error: 'You do not have access to this device.' },
+        { status: 403 },
+      );
+    }
+
+    const effectiveDomain = domain ?? targetDevice.domain;
+
     // Call {domain}.toggle – e.g. light.toggle, switch.toggle
     const result = await callHomeAssistantService(
       householdId,
-      domain,
+      effectiveDomain,
       'toggle',
       { entity_id: entityId },
     );
@@ -72,7 +107,7 @@ export async function POST(req: NextRequest) {
           status: result.status,
           error: result.error ?? 'Service call failed',
           entity_id: entityId,
-          domain,
+          domain: effectiveDomain,
         },
         { status: 200 }, // keep 200 so client can always parse JSON
       );
@@ -83,7 +118,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         status: result.status,
         entity_id: entityId,
-        domain,
+        domain: effectiveDomain,
       },
       { status: 200 },
     );

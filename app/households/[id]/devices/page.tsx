@@ -2,7 +2,8 @@
 import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import { DinodiaDevice, getDevicesWithMetadata } from '@/lib/homeAssistant';
-import { DevicesTableWithFilters } from '@/app/components/DevicesTableWithFilters';
+import { DeviceToggleButton } from '@/app/components/DeviceToggleButton';
+import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
 
 type PageProps = {
   params: Promise<{
@@ -46,6 +47,26 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
     }
   }
 
+  // Simple domain ordering: lights & switches first, then others
+  const domainOrder = ['light', 'switch', 'cover', 'sensor', 'binary_sensor', 'media_player'];
+
+  if (devices) {
+    devices.sort((a, b) => {
+      const ai = domainOrder.indexOf(a.domain);
+      const bi = domainOrder.indexOf(b.domain);
+      const ad = ai === -1 ? 999 : ai;
+      const bd = bi === -1 ? 999 : bi;
+      if (ad !== bd) return ad - bd;
+
+      // Secondary sort: area then name
+      const an = a.areaName ?? '';
+      const bn = b.areaName ?? '';
+      if (an !== bn) return an.localeCompare(bn);
+
+      return a.friendlyName.localeCompare(b.friendlyName);
+    });
+  }
+
   return (
     <main
       style={{
@@ -65,7 +86,7 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
           href="/households"
           style={{
             display: 'inline-flex',
-            marginBottom: '16px',
+            marginBottom: '8px',
             padding: '6px 10px',
             borderRadius: '9999px',
             border: '1px solid #e5e7eb',
@@ -89,16 +110,17 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
         </h1>
         <p
           style={{
-            marginBottom: '16px',
+            marginBottom: '8px',
             color: '#6b7280',
             fontSize: '0.9rem',
           }}
         >
           These entities are coming directly from the Home Assistant hub configured for
-          this household, grouped using your <strong>Areas</strong> and{' '}
-          <strong>Labels</strong> from Home Assistant. Lights and switches can be toggled
-          from here.
+          this household. Lights and switches can be toggled from here.
         </p>
+
+        {/* Per-household nav tabs */}
+        <HouseholdNavTabs householdId={householdId} />
 
         {!household.homeAssistant && (
           <p
@@ -108,7 +130,7 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
               marginBottom: '12px',
             }}
           >
-            Home Assistant is not configured yet. Configure it first, then come back:
+            Home Assistant is not configured yet. Configure it first, then come back.
           </p>
         )}
 
@@ -128,10 +150,203 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
         )}
 
         {devices && devices.length > 0 && (
-          <DevicesTableWithFilters
-            householdId={householdId}
-            devices={devices as any}
-          />
+          <div
+            style={{
+              borderRadius: '20px',
+              background: '#ffffff',
+              boxShadow: '0 16px 30px rgba(15, 23, 42, 0.08)',
+              padding: '16px 18px',
+              overflowX: 'auto',
+            }}
+          >
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '0.85rem',
+                minWidth: '820px',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Name
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Entity ID
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Domain
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Area
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Labels
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    State
+                  </th>
+                  <th
+                    style={{
+                      textAlign: 'left',
+                      padding: '8px',
+                      borderBottom: '1px solid #e5e7eb',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Control
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {devices.map((d) => (
+                  <tr key={d.entityId}>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                      }}
+                    >
+                      {d.friendlyName}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                        color: '#6b7280',
+                        fontFamily:
+                          'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                      }}
+                    >
+                      {d.entityId}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                        color: '#4b5563',
+                      }}
+                    >
+                      {d.domain}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                        color: d.areaName ? '#111827' : '#9ca3af',
+                      }}
+                    >
+                      {d.areaName ?? '—'}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                      }}
+                    >
+                      {!d.labels || d.labels.length === 0 ? (
+                        <span style={{ color: '#9ca3af' }}>—</span>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '4px',
+                          }}
+                        >
+                          {d.labels.map((label) => (
+                            <span
+                              key={label}
+                              style={{
+                                padding: '2px 6px',
+                                borderRadius: '9999px',
+                                background: '#eef2ff',
+                                color: '#4f46e5',
+                              }}
+                            >
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                        color: d.state === 'on' ? '#16a34a' : '#6b7280',
+                      }}
+                    >
+                      {d.state}
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        borderBottom: '1px solid #f3f4f6',
+                      }}
+                    >
+                      <DeviceToggleButton
+                        householdId={householdId}
+                        entityId={d.entityId}
+                        domain={d.domain}
+                        initialState={d.state}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {devices && devices.length === 0 && !error && (

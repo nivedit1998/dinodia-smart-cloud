@@ -3,12 +3,14 @@
 
 import { useState } from 'react';
 import { DeviceToggleButton } from '@/app/components/DeviceToggleButton';
+import type { LabelCategory } from '@/lib/labelCatalog';
 
 type Props = {
   householdId: number;
   entityId: string;
   domain: string;
   initialState: string;
+  labelCategory: LabelCategory | null;
 };
 
 async function callHaService(args: {
@@ -50,16 +52,32 @@ export function DeviceActionControls({
   entityId,
   domain,
   initialState,
+  labelCategory,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [brightness, setBrightness] = useState(100); // 0–100%
-  const [volume, setVolume] = useState(30); // 0–100%
+  const [brightness, setBrightness] = useState(100);
   const [fanSpeed, setFanSpeed] = useState<'off' | 'low' | 'medium' | 'high'>(
     'off',
   );
+  const [targetTemp, setTargetTemp] = useState(21);
 
-  const disabled = busy;
+  const isSensor =
+    labelCategory === 'MOTION_SENSOR' ||
+    labelCategory === 'DOORBELL' ||
+    labelCategory === 'SECURITY';
+  const isLight = labelCategory === 'LIGHT';
+  const isBlind = labelCategory === 'BLIND';
+  const labelIsMedia =
+    labelCategory === 'TV' ||
+    labelCategory === 'SPEAKER' ||
+    labelCategory === 'SPOTIFY';
+  const supportsMediaControls =
+    labelIsMedia && domain === 'media_player';
+  const isBoiler = labelCategory === 'BOILER';
+
+  const showToggle =
+    !isSensor && !isBlind && (labelCategory ? true : domain === 'switch');
 
   async function handleLightBrightnessChange(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -101,32 +119,24 @@ export function DeviceActionControls({
         entityId,
       });
     } catch (err: any) {
-      setError(err.message || 'Failed to control cover');
+      setError(err.message || 'Failed to control blind');
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleVolumeChange(
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const value = Number(e.target.value);
-    setVolume(value);
+  async function handleVolumeStep(direction: 'up' | 'down') {
     setError(null);
-
     try {
       setBusy(true);
       await callHaService({
         householdId,
         domain: 'media_player',
-        service: 'volume_set',
+        service: direction === 'up' ? 'volume_up' : 'volume_down',
         entityId,
-        data: {
-          volume_level: value / 100, // HA expects 0.0–1.0
-        },
       });
     } catch (err: any) {
-      setError(err.message || 'Failed to set volume');
+      setError(err.message || 'Failed to change volume');
     } finally {
       setBusy(false);
     }
@@ -170,15 +180,48 @@ export function DeviceActionControls({
         domain: 'fan',
         service: 'set_percentage',
         entityId,
-        data: {
-          percentage,
-        },
+        data: { percentage },
       });
     } catch (err: any) {
       setError(err.message || 'Failed to set fan speed');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleTemperatureAdjust(delta: number) {
+    const newTemp = Math.max(5, Math.min(30, targetTemp + delta));
+    setTargetTemp(newTemp);
+    setError(null);
+
+    try {
+      setBusy(true);
+      await callHaService({
+        householdId,
+        domain,
+        service: 'set_temperature',
+        entityId,
+        data: { temperature: newTemp },
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to adjust temperature');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (isSensor) {
+    return (
+      <div
+        style={{
+          fontSize: '0.75rem',
+          color: '#9ca3af',
+          minWidth: '190px',
+        }}
+      >
+        Read-only sensor. Current state: {initialState}
+      </div>
+    );
   }
 
   return (
@@ -190,16 +233,16 @@ export function DeviceActionControls({
         minWidth: '190px',
       }}
     >
-      {/* Always show basic toggle */}
-      <DeviceToggleButton
-        householdId={householdId}
-        entityId={entityId}
-        domain={domain}
-        initialState={initialState}
-      />
+      {showToggle && (
+        <DeviceToggleButton
+          householdId={householdId}
+          entityId={entityId}
+          domain={domain}
+          initialState={initialState}
+        />
+      )}
 
-      {/* Domain-specific controls */}
-      {domain === 'light' && (
+      {isLight && (
         <div
           style={{
             display: 'flex',
@@ -218,18 +261,18 @@ export function DeviceActionControls({
           </span>
           <input
             type="range"
-            min={10}
+            min={5}
             max={100}
             step={5}
             value={brightness}
-            disabled={disabled}
+            disabled={busy}
             onChange={handleLightBrightnessChange}
             style={{ flex: 1 }}
           />
         </div>
       )}
 
-      {domain === 'cover' && (
+      {isBlind && (
         <div
           style={{
             display: 'flex',
@@ -239,7 +282,7 @@ export function DeviceActionControls({
         >
           <button
             type="button"
-            disabled={disabled}
+            disabled={busy}
             onClick={() => handleCover('open')}
             style={{
               padding: '3px 8px',
@@ -254,7 +297,7 @@ export function DeviceActionControls({
           </button>
           <button
             type="button"
-            disabled={disabled}
+            disabled={busy}
             onClick={() => handleCover('stop')}
             style={{
               padding: '3px 8px',
@@ -269,7 +312,7 @@ export function DeviceActionControls({
           </button>
           <button
             type="button"
-            disabled={disabled}
+            disabled={busy}
             onClick={() => handleCover('close')}
             style={{
               padding: '3px 8px',
@@ -285,35 +328,8 @@ export function DeviceActionControls({
         </div>
       )}
 
-      {domain === 'media_player' && (
+      {supportsMediaControls && (
         <>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <span
-              style={{
-                fontSize: '0.7rem',
-                color: '#6b7280',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Volume
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={5}
-              value={volume}
-              disabled={disabled}
-              onChange={handleVolumeChange}
-              style={{ flex: 1 }}
-            />
-          </div>
           <div
             style={{
               display: 'flex',
@@ -322,7 +338,37 @@ export function DeviceActionControls({
           >
             <button
               type="button"
-              disabled={disabled}
+              disabled={busy}
+              onClick={() => handleVolumeStep('down')}
+              style={{
+                padding: '3px 8px',
+                borderRadius: '9999px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
+            >
+              Vol –
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleVolumeStep('up')}
+              style={{
+                padding: '3px 8px',
+                borderRadius: '9999px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
+            >
+              Vol +
+            </button>
+            <button
+              type="button"
+              disabled={busy}
               onClick={() => handleMediaAction('prev')}
               style={{
                 padding: '3px 8px',
@@ -333,11 +379,11 @@ export function DeviceActionControls({
                 cursor: 'pointer',
               }}
             >
-              ◀︎ Prev
+              ◀︎
             </button>
             <button
               type="button"
-              disabled={disabled}
+              disabled={busy}
               onClick={() => handleMediaAction('next')}
               style={{
                 padding: '3px 8px',
@@ -348,13 +394,104 @@ export function DeviceActionControls({
                 cursor: 'pointer',
               }}
             >
-              Next ▶︎
+              ▶︎
             </button>
           </div>
         </>
       )}
 
-      {domain === 'fan' && (
+      {labelIsMedia && !supportsMediaControls && (
+        <div
+          style={{
+            fontSize: '0.7rem',
+            color: '#9ca3af',
+          }}
+        >
+          Connect this device as a media player in Home Assistant to adjust
+          volume here.
+        </div>
+      )}
+
+      {isBoiler && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.7rem',
+              color: '#6b7280',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Temperature
+          </span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleTemperatureAdjust(-1)}
+              style={{
+                padding: '3px 8px',
+                borderRadius: '9999px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
+            >
+              –
+            </button>
+            <span
+              style={{
+                minWidth: '40px',
+                textAlign: 'center',
+                fontSize: '0.8rem',
+                color: '#111827',
+              }}
+            >
+              {targetTemp}°C
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleTemperatureAdjust(1)}
+              style={{
+                padding: '3px 8px',
+                borderRadius: '9999px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
+
+      {labelCategory === 'SPEAKER' && (
+        <div
+          style={{
+            fontSize: '0.7rem',
+            color: '#9ca3af',
+          }}
+        >
+          Use the controls above to toggle power or adjust volume.
+        </div>
+      )}
+
+      {domain === 'fan' && !labelCategory && (
         <div
           style={{
             display: 'flex',
@@ -372,7 +509,7 @@ export function DeviceActionControls({
             Fan speed
           </span>
           <select
-            disabled={disabled}
+            disabled={busy}
             value={fanSpeed}
             onChange={handleFanSpeedChange}
             style={{

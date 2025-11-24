@@ -4,6 +4,10 @@
 import { useMemo, useState } from 'react';
 import type { DinodiaDevice } from '@/lib/homeAssistant';
 import { DeviceActionControls } from '@/app/components/DeviceActionControls';
+import {
+  labelDisplayName,
+  type LabelCategory,
+} from '@/lib/labelCatalog';
 
 type Props = {
   householdId: number;
@@ -19,39 +23,40 @@ export function TenantDevicesGrid({
   devices,
 }: Props) {
   const [search, setSearch] = useState('');
-  const [labelFilter, setLabelFilter] = useState<string>('all');
+  const [labelFilter, setLabelFilter] = useState<LabelCategory | null>(null);
 
-  const allLabels = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          devices.flatMap((d) => d.labels || []).filter((l) => l.trim() !== ''),
-        ),
-      ).sort((a, b) => a.localeCompare(b)),
-    [devices],
-  );
+  const labelOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        devices
+          .map((device) => device.labelCategory)
+          .filter((cat): cat is LabelCategory => Boolean(cat)),
+      ),
+    ).sort((a, b) => labelDisplayName(a).localeCompare(labelDisplayName(b)));
+  }, [devices]);
 
   const filtered = useMemo(() => {
-    return devices.filter((d) => {
-      if (labelFilter !== 'all') {
-        if (!d.labels || !d.labels.includes(labelFilter)) {
-          return false;
-        }
+    return devices.filter((device) => {
+      if (labelFilter && device.labelCategory !== labelFilter) {
+        return false;
       }
 
       if (!search.trim()) return true;
       const term = search.toLowerCase();
 
       return (
-        d.friendlyName.toLowerCase().includes(term) ||
-        d.entityId.toLowerCase().includes(term) ||
-        (d.areaName && d.areaName.toLowerCase().includes(term)) ||
-        (d.labels || []).some((l) => l.toLowerCase().includes(term))
+        device.friendlyName.toLowerCase().includes(term) ||
+        device.entityId.toLowerCase().includes(term) ||
+        (device.areaName && device.areaName.toLowerCase().includes(term)) ||
+        device.labels.some((label) => label.toLowerCase().includes(term)) ||
+        (device.labelCategory &&
+          labelDisplayName(device.labelCategory)
+            .toLowerCase()
+            .includes(term))
       );
     });
   }, [devices, search, labelFilter]);
 
-  // Domain ordering to keep cards grouped nicely
   const domainOrder = ['light', 'switch', 'cover', 'media_player', 'fan'];
 
   filtered.sort((a, b) => {
@@ -111,7 +116,6 @@ export function TenantDevicesGrid({
           </span>
         </div>
 
-        {/* Label filter chips */}
         <div
           style={{
             display: 'flex',
@@ -131,46 +135,52 @@ export function TenantDevicesGrid({
           </span>
           <button
             type="button"
-            onClick={() => setLabelFilter('all')}
+            onClick={() => setLabelFilter(null)}
             style={{
               padding: '4px 10px',
               borderRadius: '9999px',
               border:
-                labelFilter === 'all'
+                labelFilter === null
                   ? '1px solid #4f46e5'
                   : '1px solid #e5e7eb',
               background:
-                labelFilter === 'all' ? '#eef2ff' : '#ffffff',
+                labelFilter === null ? '#eef2ff' : '#ffffff',
               fontSize: '0.8rem',
               cursor: 'pointer',
             }}
           >
             All
           </button>
-          {allLabels.map((label) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setLabelFilter(label)}
-              style={{
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                border:
-                  labelFilter === label
-                    ? '1px solid #4f46e5'
-                    : '1px solid #e5e7eb',
-                background:
-                  labelFilter === label ? '#eef2ff' : '#ffffff',
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          {labelOptions.map((category) => {
+            const display = labelDisplayName(category);
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() =>
+                  setLabelFilter((prev) =>
+                    prev === category ? null : category,
+                  )
+                }
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  border:
+                    labelFilter === category
+                      ? '1px solid #4f46e5'
+                      : '1px solid #e5e7eb',
+                  background:
+                    labelFilter === category ? '#eef2ff' : '#ffffff',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                }}
+              >
+                {display}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Search */}
         <input
           type="text"
           placeholder="Search devices by name, label, or room…"
@@ -185,7 +195,6 @@ export function TenantDevicesGrid({
         />
       </div>
 
-      {/* Cards grid */}
       {filtered.length === 0 ? (
         <p
           style={{
@@ -200,19 +209,17 @@ export function TenantDevicesGrid({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: '12px',
           }}
         >
-          {filtered.map((d) => (
+          {filtered.map((device) => (
             <div
-              key={d.entityId}
+              key={device.entityId}
               style={{
                 borderRadius: '16px',
                 background: '#ffffff',
-                boxShadow:
-                  '0 14px 30px rgba(15, 23, 42, 0.08)',
+                boxShadow: '0 14px 30px rgba(15, 23, 42, 0.08)',
                 padding: '12px 14px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -234,7 +241,7 @@ export function TenantDevicesGrid({
                       color: '#111827',
                     }}
                   >
-                    {d.friendlyName}
+                    {device.friendlyName}
                   </div>
                   <div
                     style={{
@@ -242,21 +249,22 @@ export function TenantDevicesGrid({
                       color: '#6b7280',
                     }}
                   >
-                    {d.areaName || 'No area'} · {d.domain}
+                    {device.areaName || 'No area'} · {device.domain}
                   </div>
                 </div>
                 <div
                   style={{
                     fontSize: '0.75rem',
                     color:
-                      d.state === 'on' ? '#16a34a' : '#6b7280',
+                      device.state === 'on' || device.state === 'open'
+                        ? '#16a34a'
+                        : '#6b7280',
                   }}
                 >
-                  {d.state}
+                  {device.state}
                 </div>
               </div>
 
-              {/* Labels */}
               <div
                 style={{
                   display: 'flex',
@@ -264,7 +272,20 @@ export function TenantDevicesGrid({
                   gap: '4px',
                 }}
               >
-                {(!d.labels || d.labels.length === 0) && (
+                {device.labelCategory && (
+                  <span
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: '9999px',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {labelDisplayName(device.labelCategory)}
+                  </span>
+                )}
+                {device.labels.length === 0 && (
                   <span
                     style={{
                       fontSize: '0.75rem',
@@ -274,7 +295,7 @@ export function TenantDevicesGrid({
                     No labels
                   </span>
                 )}
-                {d.labels?.map((label) => (
+                {device.labels.map((label) => (
                   <span
                     key={label}
                     style={{
@@ -290,7 +311,6 @@ export function TenantDevicesGrid({
                 ))}
               </div>
 
-              {/* Controls */}
               <div
                 style={{
                   marginTop: '4px',
@@ -298,9 +318,10 @@ export function TenantDevicesGrid({
               >
                 <DeviceActionControls
                   householdId={householdId}
-                  entityId={d.entityId}
-                  domain={d.domain}
-                  initialState={d.state}
+                  entityId={device.entityId}
+                  domain={device.domain}
+                  initialState={device.state}
+                  labelCategory={device.labelCategory}
                 />
               </div>
             </div>

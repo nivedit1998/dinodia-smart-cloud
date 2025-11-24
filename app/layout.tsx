@@ -66,6 +66,12 @@ export default async function RootLayout({
               Households
             </Link>
             <Link
+              href="/households/new"
+              style={{ color: '#111827', textDecoration: 'none' }}
+            >
+              Register household
+            </Link>
+            <Link
               href="/register"
               style={{ color: '#2563eb', textDecoration: 'none' }}
             >

@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import { getDevicesWithMetadata } from '@/lib/homeAssistant';
 import { revalidatePath } from 'next/cache';
+import {
+  type LabelCategory,
+  labelDisplayName,
+} from '@/lib/labelCatalog';
 
 type PageProps = {
   params: Promise<{
@@ -33,6 +37,12 @@ export async function addOrUpdateMember(formData: FormData) {
     rawArea && String(rawArea).trim().length > 0
       ? String(rawArea).trim()
       : null;
+  const labelSelections = formData
+    .getAll('labelFilters')
+    .map((value) => String(value).trim())
+    .filter((value) => value.length > 0);
+  const labelFilterCsv =
+    labelSelections.length > 0 ? labelSelections.join(',') : null;
 
   if (!householdId || !userId || !role) {
     throw new Error('Missing required fields');
@@ -50,10 +60,12 @@ export async function addOrUpdateMember(formData: FormData) {
       userId,
       role,
       areaFilter,
+      labelFilterCsv,
     },
     update: {
       role,
       areaFilter,
+      labelFilterCsv,
     },
   });
 
@@ -156,6 +168,21 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
               .filter((name) => name && name.trim().length > 0),
           ),
         ).sort((a, b) => a.localeCompare(b))
+      : [];
+
+  const labelOptions =
+    devicesResult.ok && devicesResult.devices
+      ? Array.from(
+          new Set(
+            devicesResult.devices
+              .map((d) => d.labelCategory)
+              .filter((cat) => Boolean(cat)),
+          ),
+        ).sort((a, b) =>
+          labelDisplayName(a as LabelCategory).localeCompare(
+            labelDisplayName(b as LabelCategory),
+          ),
+        ) as LabelCategory[]
       : [];
 
   return (
@@ -325,6 +352,17 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
                         fontWeight: 500,
                       }}
                     >
+                      Label Filters
+                    </th>
+                    <th
+                      style={{
+                        textAlign: 'left',
+                        padding: '8px',
+                        borderBottom: '1px solid #e5e7eb',
+                        color: '#6b7280',
+                        fontWeight: 500,
+                      }}
+                    >
                       Actions
                     </th>
                   </tr>
@@ -392,6 +430,43 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
                           </span>
                         ) : (
                           <span style={{ color: '#9ca3af' }}>All areas</span>
+                        )}
+                      </td>
+                      <td
+                        style={{
+                          padding: '8px',
+                          borderBottom: '1px solid #f3f4f6',
+                        }}
+                      >
+                        {m.labelFilterCsv ? (
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '4px',
+                            }}
+                          >
+                            {m.labelFilterCsv
+                              .split(',')
+                              .map((label) => label.trim())
+                              .filter((label) => label.length > 0)
+                              .map((label) => (
+                                <span
+                                  key={`${m.id}-${label}`}
+                                  style={{
+                                    padding: '2px 6px',
+                                    borderRadius: '9999px',
+                                    background: '#eef2ff',
+                                    color: '#4f46e5',
+                                    fontSize: '0.75rem',
+                                  }}
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#9ca3af' }}>All labels</span>
                         )}
                       </td>
                       <td
@@ -571,6 +646,57 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Label filters */}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <label
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#4b5563',
+                  marginBottom: '4px',
+                }}
+              >
+                Allowed Labels
+              </label>
+              {labelOptions.length === 0 ? (
+                <p style={{ fontSize: '0.8rem', color: '#9ca3af' }}>
+                  No labelled devices detected yet.
+                </p>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                  }}
+                >
+                  {labelOptions.map((category) => {
+                    const display = labelDisplayName(category);
+                    return (
+                      <label
+                        key={category}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          border: '1px solid #e5e7eb',
+                          padding: '4px 8px',
+                          borderRadius: '9999px',
+                          fontSize: '0.8rem',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          name="labelFilters"
+                          value={display}
+                        />
+                        <span>{display}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div>

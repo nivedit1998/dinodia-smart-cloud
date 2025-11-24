@@ -3,28 +3,30 @@
 
 import { useMemo, useState } from 'react';
 import type { DinodiaDevice } from '@/lib/homeAssistant';
-import { DeviceToggleButton } from '@/app/components/DeviceToggleButton';
+import { DeviceActionControls } from '@/app/components/DeviceActionControls';
+import {
+  labelDisplayName,
+  type LabelCategory,
+} from '@/lib/labelCatalog';
 
 type Props = {
   householdId: number;
   devices: DinodiaDevice[];
-  labels: string[];
+  labelCategories: LabelCategory[];
   areaName: string | null;
 };
 
 export function TenantRoomDashboard({
   householdId,
   devices,
-  labels,
+  labelCategories,
   areaName,
 }: Props) {
-  const [activeLabel, setActiveLabel] = useState<string | null>(null);
+  const [activeLabel, setActiveLabel] = useState<LabelCategory | null>(null);
 
   const filteredDevices = useMemo(() => {
     if (!activeLabel) return devices;
-    return devices.filter(
-      (device) => device.labels && device.labels.includes(activeLabel),
-    );
+    return devices.filter((device) => device.labelCategory === activeLabel);
   }, [devices, activeLabel]);
 
   return (
@@ -61,7 +63,9 @@ export function TenantRoomDashboard({
             padding: '4px 10px',
             borderRadius: '9999px',
             border:
-              activeLabel === null ? '1px solid #4f46e5' : '1px solid #e5e7eb',
+              activeLabel === null
+                ? '1px solid #4f46e5'
+                : '1px solid #e5e7eb',
             background: activeLabel === null ? '#eef2ff' : '#ffffff',
             fontSize: '0.8rem',
             cursor: 'pointer',
@@ -69,29 +73,32 @@ export function TenantRoomDashboard({
         >
           All
         </button>
-        {labels.map((label) => (
-          <button
-            key={label}
-            type='button'
-            onClick={() =>
-              setActiveLabel((prev) => (prev === label ? null : label))
-            }
-            style={{
-              padding: '4px 10px',
-              borderRadius: '9999px',
-              border:
-                activeLabel === label
-                  ? '1px solid #4f46e5'
-                  : '1px solid #e5e7eb',
-              background:
-                activeLabel === label ? '#eef2ff' : '#ffffff',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-            }}
-          >
-            {label}
-          </button>
-        ))}
+        {labelCategories.map((category) => {
+          const label = labelDisplayName(category);
+          return (
+            <button
+              key={category}
+              type="button"
+              onClick={() =>
+                setActiveLabel((prev) => (prev === category ? null : category))
+              }
+              style={{
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                border:
+                  activeLabel === category
+                    ? '1px solid #4f46e5'
+                    : '1px solid #e5e7eb',
+                background:
+                  activeLabel === category ? '#eef2ff' : '#ffffff',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div
@@ -118,12 +125,6 @@ export function TenantRoomDashboard({
         }}
       >
         {filteredDevices.map((device) => {
-          const supportsToggle =
-            device.domain === 'light' ||
-            device.domain === 'switch' ||
-            device.domain === 'cover' ||
-            device.domain === 'fan';
-
           return (
             <div
               key={device.entityId}
@@ -176,17 +177,19 @@ export function TenantRoomDashboard({
                   fontSize: '0.75rem',
                 }}
               >
-                <span
-                  style={{
-                    padding: '2px 6px',
-                    borderRadius: '9999px',
-                    background: '#eff6ff',
-                    color: '#1d4ed8',
-                  }}
-                >
-                  {device.domain}
-                </span>
-                {device.labels?.map((label) => (
+                {device.labelCategory && (
+                  <span
+                    style={{
+                      padding: '2px 6px',
+                      borderRadius: '9999px',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                    }}
+                  >
+                    {labelDisplayName(device.labelCategory)}
+                  </span>
+                )}
+                {device.labels.map((label) => (
                   <span
                     key={label}
                     style={{
@@ -219,23 +222,13 @@ export function TenantRoomDashboard({
                   justifyContent: 'flex-end',
                 }}
               >
-                {supportsToggle ? (
-                  <DeviceToggleButton
-                    householdId={householdId}
-                    entityId={device.entityId}
-                    domain={device.domain}
-                    initialState={device.state}
-                  />
-                ) : (
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: '#9ca3af',
-                    }}
-                  >
-                    No direct control from here
-                  </span>
-                )}
+                <DeviceActionControls
+                  householdId={householdId}
+                  entityId={device.entityId}
+                  domain={device.domain}
+                  initialState={device.state}
+                  labelCategory={device.labelCategory}
+                />
               </div>
             </div>
           );

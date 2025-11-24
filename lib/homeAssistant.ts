@@ -1,5 +1,9 @@
 // lib/homeAssistant.ts
 import { prisma } from './prisma';
+import {
+  classifyDeviceByLabel,
+  type LabelCategory,
+} from '@/lib/labelCatalog';
 
 export type HomeAssistantInstance = {
   id: number;
@@ -33,8 +37,10 @@ export type DinodiaDevice = {
   domain: string;
   friendlyName: string;
   icon?: string;
-  areaName?: string | null;
-  labels?: string[];
+  areaName: string | null;
+  labels: string[];
+  labelCategory: LabelCategory | null;
+  supportsVolume: boolean;
   raw: HAState;
 };
 
@@ -320,6 +326,11 @@ export async function getDevicesWithMetadata(
         : undefined;
 
     const meta = metaByEntity.get(s.entity_id);
+    const labels = meta?.labels ?? [];
+    const areaName = meta?.area_name ?? null;
+    const labelCategory = classifyDeviceByLabel(labels);
+    const supportsVolume =
+      typeof (s.attributes as Record<string, unknown>).volume_level === 'number';
 
     return {
       entityId: s.entity_id,
@@ -327,8 +338,10 @@ export async function getDevicesWithMetadata(
       domain,
       friendlyName,
       icon,
-      areaName: meta?.area_name ?? null,
-      labels: meta?.labels ?? [],
+      areaName,
+      labels,
+      labelCategory,
+      supportsVolume,
       raw: s,
     };
   });

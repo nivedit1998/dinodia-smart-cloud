@@ -1,6 +1,8 @@
 // app/api/home-assistant/service/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
+import { getAccessibleDevicesForUser } from '@/lib/tenants';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,10 +21,41 @@ export async function POST(req: NextRequest) {
       data?: Record<string, any>;
     } = body;
 
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: 'Unauthorized' },
+        { status: 401 },
+      );
+    }
+
     if (!householdId || !domain || !service || !entity_id) {
       return NextResponse.json(
         { ok: false, error: 'Missing required fields' },
         { status: 400 },
+      );
+    }
+
+    const accessResult = await getAccessibleDevicesForUser(
+      Number(householdId),
+      user.id,
+    );
+
+    if (!accessResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: accessResult.error },
+        { status: 403 },
+      );
+    }
+
+    const targetDevice = accessResult.devices.find(
+      (device) => device.entityId === entity_id,
+    );
+
+    if (!targetDevice) {
+      return NextResponse.json(
+        { ok: false, error: 'You do not have access to this device.' },
+        { status: 403 },
       );
     }
 

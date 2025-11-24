@@ -62,9 +62,7 @@ export function DevicesTableWithFilters({ householdId, devices }: Props) {
         d.friendlyName.toLowerCase().includes(term) ||
         d.entityId.toLowerCase().includes(term) ||
         (d.areaName && d.areaName.toLowerCase().includes(term)) ||
-        (d.labels || []).some((label) =>
-          label.toLowerCase().includes(term),
-        )
+        d.labels.some((label) => label.toLowerCase().includes(term))
       );
     });
   }, [devices, search, domainFilter, areaFilter]);
@@ -293,7 +291,7 @@ export function DevicesTableWithFilters({ householdId, devices }: Props) {
                     borderBottom: '1px solid #f3f4f6',
                   }}
                 >
-                  {!d.labels || d.labels.length === 0 ? (
+                  {d.labels.length === 0 ? (
                     <span style={{ color: '#9ca3af' }}>—</span>
                   ) : (
                     <div
@@ -339,6 +337,7 @@ export function DevicesTableWithFilters({ householdId, devices }: Props) {
                     entityId={d.entityId}
                     domain={d.domain}
                     initialState={d.state}
+                    labelCategory={d.labelCategory}
                   />
                 </td>
               </tr>

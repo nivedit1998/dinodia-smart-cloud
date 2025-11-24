@@ -25,7 +25,7 @@ function normalizeLabelCsv(labelFilterCsv: string | null) {
   if (!labelFilterCsv) return [] as string[];
   return labelFilterCsv
     .split(',')
-    .map((label) => label.trim())
+    .map((label) => label.trim().toLowerCase())
     .filter((label) => label.length > 0);
 }
 
@@ -42,7 +42,7 @@ function deviceMatchesFilters(
   if (labelFilters.length === 0) {
     return true;
   }
-  const deviceLabels = device.labels ?? [];
+  const deviceLabels = (device.labels ?? []).map((label) => label.toLowerCase());
   return deviceLabels.some((label) => labelFilters.includes(label));
 }
 

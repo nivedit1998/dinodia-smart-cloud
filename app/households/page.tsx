@@ -54,8 +54,10 @@ export default async function HouseholdsDashboard() {
             <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '16px' }}>
               You haven&apos;t added any households yet.
             </p>
-            <button
+            <Link
+              href="/households/new"
               style={{
+                display: 'inline-flex',
                 padding: '12px 20px',
                 borderRadius: '9999px',
                 border: 'none',
@@ -63,11 +65,11 @@ export default async function HouseholdsDashboard() {
                 color: '#ffffff',
                 fontWeight: 500,
                 cursor: 'pointer',
+                textDecoration: 'none',
               }}
-              disabled
             >
-              + Create household (coming soon)
-            </button>
+              + Create household
+            </Link>
           </section>
         ) : (
           <section

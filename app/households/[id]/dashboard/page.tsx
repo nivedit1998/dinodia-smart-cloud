@@ -1,11 +1,17 @@
 // app/households/[id]/dashboard/page.tsx
 import { redirect, notFound } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import {
   getAccessibleDevicesForUser,
   type AccessibleDevicesResult,
 } from '@/lib/tenants';
 import { TenantRoomDashboard } from '@/app/components/TenantRoomDashboard';
+import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
+import {
+  labelDisplayName,
+  type LabelCategory,
+} from '@/lib/labelCatalog';
 
 type PageProps = {
   params: Promise<{
@@ -26,6 +32,13 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
   const user = await getCurrentUser();
   if (!user) {
     redirect('/login');
+  }
+
+  const household = await prisma.household.findUnique({
+    where: { id: householdId },
+  });
+  if (!household) {
+    notFound();
   }
 
   const result: AccessibleDevicesResult = await getAccessibleDevicesForUser(
@@ -49,7 +62,7 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
             href="/households"
             style={{
               display: 'inline-flex',
-              marginBottom: '16px',
+              marginBottom: '8px',
               padding: '6px 10px',
               borderRadius: '9999px',
               border: '1px solid #e5e7eb',
@@ -64,14 +77,18 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
             style={{
               fontSize: '1.5rem',
               fontWeight: 600,
-              marginBottom: '8px',
+              marginBottom: '4px',
               color: '#111827',
             }}
           >
             Room dashboard
           </h1>
+
+          <HouseholdNavTabs householdId={householdId} />
+
           <div
             style={{
+              marginTop: '12px',
               padding: '10px 12px',
               borderRadius: '12px',
               background: '#fef2f2',
@@ -86,19 +103,19 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
     );
   }
 
-  const { access, devices } = result;
+  const devices = result.devices;
+  const access = result.access!;
   const areaName = access.areaFilter ?? null;
 
-  const labelSet = new Set<string>();
+  // Collect label categories across visible devices for filter chips
+  const categorySet = new Set<LabelCategory>();
   for (const device of devices) {
-    if (device.labels) {
-      for (const label of device.labels) {
-        labelSet.add(label);
-      }
+    if (device.labelCategory) {
+      categorySet.add(device.labelCategory);
     }
   }
-  const allLabels = Array.from(labelSet).sort((a, b) =>
-    a.localeCompare(b),
+  const labelCategories = Array.from(categorySet).sort((a, b) =>
+    labelDisplayName(a).localeCompare(labelDisplayName(b)),
   );
 
   return (
@@ -116,7 +133,7 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
           href="/households"
           style={{
             display: 'inline-flex',
-            marginBottom: '16px',
+            marginBottom: '8px',
             padding: '6px 10px',
             borderRadius: '9999px',
             border: '1px solid #e5e7eb',
@@ -136,11 +153,11 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
             color: '#111827',
           }}
         >
-          {areaName ? `Room: ${areaName}` : 'Room dashboard'}
+          {areaName ? `Room: ${areaName}` : `Room dashboard (${household.name})`}
         </h1>
         <p
           style={{
-            marginBottom: '16px',
+            marginBottom: '8px',
             color: '#6b7280',
             fontSize: '0.9rem',
           }}
@@ -149,10 +166,13 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
           your assigned room and labels.
         </p>
 
+        {/* Per-household nav tabs */}
+        <HouseholdNavTabs householdId={householdId} />
+
         <TenantRoomDashboard
           householdId={householdId}
           devices={devices}
-          labels={allLabels}
+          labelCategories={labelCategories}
           areaName={areaName}
         />
       </div>
