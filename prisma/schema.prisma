@@ -17,13 +17,19 @@ enum PlanType {
   MULTI_TENANT
 }
 
+enum HouseholdRole {
+  OWNER
+  TENANT
+}
+
 model User {
   id    Int      @id @default(autoincrement())
   email String   @unique
   name  String?
   role  UserRole @default(LANDLORD)
 
-  households Household[] @relation("UserHouseholds")
+  households            Household[]       @relation("UserHouseholds")
+  householdMemberships  HouseholdMember[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 }
@@ -38,9 +44,26 @@ model Household {
 
   homeAssistant HomeAssistantInstance?
   spotifyToken  SpotifyToken?
+  members       HouseholdMember[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model HouseholdMember {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  householdId Int
+  role        HouseholdRole
+
+  /// Optional Home Assistant Area filter (e.g. "Room 1", "Bedroom 2").
+  /// TENANTs will only see entities whose areaName matches this.
+  areaFilter  String?
+
+  user      User      @relation(fields: [userId], references: [id])
+  household Household @relation(fields: [householdId], references: [id])
+
+  @@unique([userId, householdId])
 }
 
 model HomeAssistantInstance {
