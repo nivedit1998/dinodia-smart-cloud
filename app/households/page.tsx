@@ -1,15 +1,15 @@
 // app/households/page.tsx
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function HouseholdsPage() {
+export default async function HouseholdsDashboard() {
   const households = await prisma.household.findMany({
     include: {
-      spotifyToken: true,
       homeAssistant: true,
-      owner: true,
+      spotifyToken: true,
     },
   });
 
@@ -17,226 +17,175 @@ export default async function HouseholdsPage() {
     <main
       style={{
         minHeight: '100vh',
-        padding: '40px 24px',
-        background: '#f3f4ff',
+        padding: '48px 24px 64px',
+        background: '#eef2ff',
         fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
-      <div
-        style={{
-          maxWidth: '960px',
-          margin: '0 auto',
-        }}
-      >
-        <h1
-          style={{
-            fontSize: '2rem',
-            fontWeight: 600,
-            marginBottom: '8px',
-            color: '#111827',
-          }}
-        >
-          Households · Dinodia Smart Cloud
-        </h1>
-        <p style={{ marginBottom: '24px', color: '#6b7280' }}>
-          Each household represents a property or flat. Later you&apos;ll have separate
-          single-household homes and HMOs, each with their own Home Assistant hub, tenant
-          logins, and media integrations.
-        </p>
-
-        {households.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>
-            No households yet. Connect Spotify from the home page to create your first
-            household.
-          </p>
-        ) : (
-          <div
+      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+        <header style={{ marginBottom: '32px' }}>
+          <h1
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: '16px',
+              fontSize: '2rem',
+              fontWeight: 600,
+              color: '#111827',
+              marginBottom: '8px',
             }}
           >
-            {households.map((h) => {
-              const spotifyStatus = h.spotifyToken ? 'Connected' : 'Not connected';
-              const haStatus = h.homeAssistant ? 'Configured' : 'Not configured';
+            Your Households
+          </h1>
+          <p style={{ color: '#6b7280', maxWidth: '640px' }}>
+            Manage each property&apos;s smart-home integrations, tenant access, and
+            Home Assistant hubs. Use the quick actions below to jump into device
+            lists, tenant views, or member settings.
+          </p>
+        </header>
+
+        {households.length === 0 ? (
+          <section
+            style={{
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '32px',
+              textAlign: 'center',
+              boxShadow: '0 25px 45px rgba(15, 23, 42, 0.1)',
+            }}
+          >
+            <p style={{ fontSize: '1rem', color: '#6b7280', marginBottom: '16px' }}>
+              You haven&apos;t added any households yet.
+            </p>
+            <button
+              style={{
+                padding: '12px 20px',
+                borderRadius: '9999px',
+                border: 'none',
+                background: '#2563eb',
+                color: '#ffffff',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+              disabled
+            >
+              + Create household (coming soon)
+            </button>
+          </section>
+        ) : (
+          <section
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '18px',
+            }}
+          >
+            {households.map((household) => {
+              const haConfigured = Boolean(household.homeAssistant);
+              const planLabel =
+                household.plan === 'SINGLE_HOUSEHOLD'
+                  ? 'Single-Household'
+                  : 'Multi-Tenant HMO';
 
               return (
-                <div
-                  key={h.id}
+                <article
+                  key={household.id}
                   style={{
                     background: '#ffffff',
-                    borderRadius: '20px',
-                    padding: '16px 18px',
-                    boxShadow: '0 16px 30px rgba(15, 23, 42, 0.08)',
+                    borderRadius: '24px',
+                    padding: '20px',
+                    boxShadow: '0 20px 40px rgba(15, 23, 42, 0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
                   }}
                 >
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '8px',
+                      alignItems: 'flex-start',
+                      gap: '12px',
                     }}
                   >
-                    <h2
-                      style={{
-                        fontSize: '1.1rem',
-                        fontWeight: 600,
-                        color: '#111827',
-                      }}
-                    >
-                      {h.name}
-                    </h2>
+                    <div>
+                      <h2
+                        style={{
+                          fontSize: '1.15rem',
+                          fontWeight: 600,
+                          margin: 0,
+                          color: '#111827',
+                        }}
+                      >
+                        {household.name}
+                      </h2>
+                      <p
+                        style={{
+                          margin: '4px 0 0',
+                          fontSize: '0.85rem',
+                          color: '#6b7280',
+                        }}
+                      >
+                        Plan: {planLabel}
+                      </p>
+                    </div>
                     <span
                       style={{
-                        fontSize: '0.75rem',
-                        padding: '4px 8px',
+                        padding: '4px 10px',
                         borderRadius: '9999px',
-                        background:
-                          h.plan === 'SINGLE_HOUSEHOLD' ? '#ecfeff' : '#f5f3ff',
-                        color:
-                          h.plan === 'SINGLE_HOUSEHOLD' ? '#0f766e' : '#6d28d9',
+                        fontSize: '0.75rem',
+                        background: haConfigured ? '#ecfdf5' : '#fee2e2',
+                        color: haConfigured ? '#15803d' : '#b91c1c',
+                        fontWeight: 500,
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      {h.plan === 'SINGLE_HOUSEHOLD'
-                        ? 'Single-Household'
-                        : 'Multi-Tenant HMO'}
+                      Home Assistant: {haConfigured ? 'Yes' : 'No'}
                     </span>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: '0.8rem',
-                      color: '#6b7280',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    Owner: {h.owner?.email ?? 'Unknown'}
-                  </p>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr',
-                      rowGap: '8px',
-                      fontSize: '0.85rem',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span style={{ color: '#6b7280' }}>Spotify</span>
-                      <span
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '9999px',
-                          background: h.spotifyToken ? '#ecfdf5' : '#fee2e2',
-                          color: h.spotifyToken ? '#15803d' : '#b91c1c',
-                        }}
-                      >
-                        {spotifyStatus}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span style={{ color: '#6b7280' }}>Home Assistant hub</span>
-                      <span
-                        style={{
-                          padding: '4px 8px',
-                          borderRadius: '9999px',
-                          background: h.homeAssistant ? '#ecfdf5' : '#fee2e2',
-                          color: h.homeAssistant ? '#15803d' : '#b91c1c',
-                        }}
-                      >
-                        {haStatus}
-                      </span>
-                    </div>
                   </div>
 
                   <div
                     style={{
                       display: 'flex',
-                      gap: '8px',
                       flexWrap: 'wrap',
-                      marginTop: '4px',
+                      gap: '8px',
                     }}
                   >
-                    <a
-                      href={`/households/${h.id}/home-assistant`}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '9999px',
-                        border: '1px solid #e5e7eb',
-                        fontSize: '0.8rem',
-                        textDecoration: 'none',
-                        color: '#111827',
-                      }}
+                    <Link
+                      href={`/households/${household.id}/devices`}
+                      style={actionButtonStyle}
                     >
-                      ⚙️ Configure Home Assistant
-                    </a>
-
-                    <a
-                      href={`/households/${h.id}/devices`}
-                      style={{
-                        padding: '6px 10px',
-                        borderRadius: '9999px',
-                        border: '1px solid #e5e7eb',
-                        fontSize: '0.8rem',
-                        textDecoration: 'none',
-                        color: '#111827',
-                      }}
+                      💡 Devices
+                    </Link>
+                    <Link
+                      href={`/households/${household.id}/tenant-devices`}
+                      style={actionButtonStyle}
                     >
-                      💡 View devices
-                    </a>
-
-                    {h.spotifyToken && (
-                      <a
-                        href="/spotify/now-playing"
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '9999px',
-                          border: '1px solid #e5e7eb',
-                          fontSize: '0.8rem',
-                          textDecoration: 'none',
-                          color: '#111827',
-                        }}
-                      >
-                        🎧 Spotify Now Playing
-                      </a>
-                    )}
+                      👥 Tenant view
+                    </Link>
+                    <Link
+                      href={`/households/${household.id}/members`}
+                      style={actionButtonStyle}
+                    >
+                      🔐 Members & access
+                    </Link>
                   </div>
-                </div>
+                </article>
               );
             })}
-          </div>
+          </section>
         )}
-
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            marginTop: '24px',
-            padding: '10px 14px',
-            borderRadius: '9999px',
-            border: '1px solid #e5e7eb',
-            textDecoration: 'none',
-            fontSize: '0.9rem',
-            color: '#111827',
-          }}
-        >
-          ← Back to home
-        </Link>
       </div>
     </main>
   );
 }
+
+const actionButtonStyle: CSSProperties = {
+  display: 'inline-flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '8px 12px',
+  borderRadius: '9999px',
+  border: '1px solid #e5e7eb',
+  background: '#f9fafb',
+  color: '#111827',
+  fontSize: '0.85rem',
+  textDecoration: 'none',
+};

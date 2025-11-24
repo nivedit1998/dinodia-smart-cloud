@@ -1,13 +1,15 @@
 // app/login/page.tsx
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {
-  const users = await prisma.user.findMany({
-    orderBy: { email: 'asc' },
-  });
+  const [currentUser, users] = await Promise.all([
+    getCurrentUser(),
+    prisma.user.findMany({ orderBy: { email: 'asc' } }),
+  ]);
 
   return (
     <main
@@ -40,19 +42,89 @@ export default async function LoginPage() {
           Dev login: choose an existing user to act as. Later we can swap this
           for a proper auth provider (Supabase/Cognito/etc.).
         </p>
-
-        {users.length === 0 ? (
-          <p
+        <div
+          style={{
+            marginBottom: '16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '0.9rem',
+            color: '#4b5563',
+          }}
+        >
+          <span>Need an account?</span>
+          <Link
+            href="/register"
             style={{
-              fontSize: '0.9rem',
-              color: '#b91c1c',
+              padding: '4px 10px',
+              borderRadius: '9999px',
+              border: '1px solid #cbd5f5',
+              textDecoration: 'none',
+              color: '#1d4ed8',
+              background: '#ffffff',
+              fontSize: '0.85rem',
             }}
           >
+            Register
+          </Link>
+        </div>
+
+        {currentUser && (
+          <div
+            style={{
+              marginBottom: '24px',
+              padding: '16px',
+              borderRadius: '16px',
+              background: '#f1f5f9',
+              border: '1px solid #d1d5db',
+            }}
+          >
+            <p style={{ margin: '0 0 12px', color: '#111827' }}>
+              You are currently logged in as{' '}
+              <strong>
+                {currentUser.email} ({currentUser.role})
+              </strong>
+            </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <Link
+                href="/households"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '9999px',
+                  background: '#16a34a',
+                  color: '#ffffff',
+                  textDecoration: 'none',
+                  fontSize: '0.85rem',
+                }}
+              >
+                Go to Households
+              </Link>
+              <a
+                href="#switch-user"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5f5',
+                  color: '#1d4ed8',
+                  textDecoration: 'none',
+                  fontSize: '0.85rem',
+                  background: '#ffffff',
+                }}
+              >
+                Switch user
+              </a>
+            </div>
+          </div>
+        )}
+
+        {users.length === 0 ? (
+          <p style={{ fontSize: '0.9rem', color: '#b91c1c' }}>
             No users found in the database. Add at least one <code>User</code>{' '}
             via Prisma Studio or a seed script.
           </p>
         ) : (
           <div
+            id="switch-user"
             style={{
               borderRadius: '16px',
               background: '#ffffff',
@@ -68,7 +140,7 @@ export default async function LoginPage() {
                 color: '#111827',
               }}
             >
-              Choose user
+              Login as another user
             </h2>
             <ul
               style={{
@@ -94,12 +166,7 @@ export default async function LoginPage() {
                   }}
                 >
                   <div>
-                    <div
-                      style={{
-                        fontWeight: 500,
-                        color: '#111827',
-                      }}
-                    >
+                    <div style={{ fontWeight: 500, color: '#111827' }}>
                       {u.name || '(No name)'}
                     </div>
                     <div
@@ -123,8 +190,7 @@ export default async function LoginPage() {
                       color: '#ffffff',
                       fontSize: '0.8rem',
                       textDecoration: 'none',
-                      boxShadow:
-                        '0 10px 20px rgba(79, 70, 229, 0.25)',
+                      boxShadow: '0 10px 20px rgba(79, 70, 229, 0.25)',
                     }}
                   >
                     Login as
@@ -148,7 +214,7 @@ export default async function LoginPage() {
               textDecoration: 'none',
             }}
           >
-            Clear login
+            Log out completely
           </Link>
         </div>
       </div>
