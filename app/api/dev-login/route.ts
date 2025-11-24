@@ -38,8 +38,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Use an absolute URL based on the current request origin
-  const res = NextResponse.redirect(new URL(redirectTarget, req.url));
+  // Use an absolute URL. Prefer NEXT_PUBLIC_BASE_URL in production so we don't
+  // accidentally redirect to localhost when running behind a proxy.
+  const baseOrigin =
+    process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
+  const res = NextResponse.redirect(new URL(redirectTarget, baseOrigin));
   res.cookies.set('userId', String(user.id), {
     path: '/',
     httpOnly: true,
