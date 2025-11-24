@@ -4,53 +4,62 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+type NavRole = 'OWNER' | 'TENANT';
+
 type Props = {
   householdId: number;
-  role: 'OWNER' | 'TENANT';
+  role: NavRole;
 };
 
-const tabDefs = [
+type TabDef = {
+  key: string;
+  label: string;
+  href: (id: number) => string;
+  roles: NavRole[];
+};
+
+const tabDefs: TabDef[] = [
   {
     key: 'dashboard',
     label: 'Room dashboard',
     href: (id: number) => `/households/${id}/dashboard`,
-    roles: ['OWNER', 'TENANT'] as const,
+    roles: ['OWNER', 'TENANT'],
   },
   {
     key: 'overview',
     label: 'Overview',
     href: (id: number) => `/households/${id}/overview`,
-    roles: ['OWNER'] as const,
+    roles: ['OWNER'],
   },
   {
     key: 'devices',
     label: 'All devices',
     href: (id: number) => `/households/${id}/devices`,
-    roles: ['OWNER'] as const,
+    roles: ['OWNER'],
   },
   {
     key: 'tenant-devices',
     label: 'Tenant view',
     href: (id: number) => `/households/${id}/tenant-devices`,
-    roles: ['OWNER', 'TENANT'] as const,
+    roles: ['OWNER', 'TENANT'],
   },
   {
     key: 'members',
     label: 'Members & access',
     href: (id: number) => `/households/${id}/members`,
-    roles: ['OWNER'] as const,
+    roles: ['OWNER'],
   },
   {
     key: 'scenes',
     label: 'Scenes',
     href: (id: number) => `/households/${id}/scenes`,
-    roles: ['OWNER'] as const,
+    roles: ['OWNER'],
   },
   {
     key: 'integrations',
     label: 'Integrations',
     href: (id: number) => `/households/${id}/integrations`,
-    roles: ['OWNER'] as const,
+    roles: ['OWNER'],
   },
 ];
 
@@ -73,30 +82,30 @@ export function HouseholdNavTabs({ householdId, role }: Props) {
       {tabDefs
         .filter((tab) => tab.roles.includes(role))
         .map((tab) => {
-        const href = tab.href(householdId);
-        const isActive =
-          pathname === href ||
-          (pathname?.startsWith(href) && tab.key !== 'dashboard'); // dashboard is the "home" tab
+          const href = tab.href(householdId);
+          const isActive =
+            pathname === href ||
+            (pathname?.startsWith(href) && tab.key !== 'dashboard'); // dashboard is the "home" tab
 
-        return (
-          <Link
-            key={tab.key}
-            href={href}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '9999px',
-              fontSize: '0.8rem',
-              textDecoration: 'none',
-              border: isActive ? '1px solid #4f46e5' : '1px solid transparent',
-              background: isActive ? '#eef2ff' : 'transparent',
-              color: isActive ? '#111827' : '#4b5563',
-              fontWeight: isActive ? 500 : 400,
-            }}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
+          return (
+            <Link
+              key={tab.key}
+              href={href}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '9999px',
+                fontSize: '0.8rem',
+                textDecoration: 'none',
+                border: isActive ? '1px solid #4f46e5' : '1px solid transparent',
+                background: isActive ? '#eef2ff' : 'transparent',
+                color: isActive ? '#111827' : '#4b5563',
+                fontWeight: isActive ? 500 : 400,
+              }}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
     </nav>
   );
 }
