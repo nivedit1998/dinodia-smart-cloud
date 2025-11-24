@@ -6,11 +6,7 @@ export async function GET(req: NextRequest) {
   const res = NextResponse.redirect('/');
 
   // Clear / delete cookie
-  res.cookies.set('userId', '', {
-    path: '/',
-    httpOnly: true,
-    maxAge: 0,
-  });
+  res.cookies.delete('userId');
 
   return res;
 }
