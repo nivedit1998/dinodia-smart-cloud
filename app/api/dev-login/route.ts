@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Use a relative redirect so we always stay on the current origin
-  const res = NextResponse.redirect(redirectTarget);
+  // Use an absolute URL based on the current request origin
+  const res = NextResponse.redirect(new URL(redirectTarget, req.url));
   res.cookies.set('userId', String(user.id), {
     path: '/',
     httpOnly: true,
