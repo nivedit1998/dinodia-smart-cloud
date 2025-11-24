@@ -7,6 +7,7 @@ import {
   HouseholdAccessRole,
 } from '@/lib/tenants';
 import { TenantDevicesGrid } from '@/app/components/TenantDevicesGrid';
+import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
 
 type PageProps = {
   params: Promise<{
@@ -187,6 +188,10 @@ export default async function TenantDevicesPage({ params }: PageProps) {
         >
           Room Dashboard – {household.name}
         </h1>
+        <HouseholdNavTabs
+          householdId={householdId}
+          role={role === 'OWNER' ? 'OWNER' : 'TENANT'}
+        />
         <p
           style={{
             marginBottom: '16px',

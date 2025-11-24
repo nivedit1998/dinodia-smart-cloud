@@ -1,9 +1,11 @@
 // app/households/[id]/devices/page.tsx
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { DinodiaDevice, getDevicesWithMetadata } from '@/lib/homeAssistant';
 import { DeviceToggleButton } from '@/app/components/DeviceToggleButton';
 import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
+import { getCurrentUser } from '@/lib/auth';
+import { getHouseholdAccessInfo } from '@/lib/tenants';
 
 type PageProps = {
   params: Promise<{
@@ -20,6 +22,11 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
     notFound();
   }
 
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
   const household = await prisma.household.findUnique({
     where: { id: householdId },
     include: {
@@ -29,6 +36,11 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
   });
 
   if (!household) {
+    notFound();
+  }
+
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
     notFound();
   }
 
@@ -120,7 +132,7 @@ export default async function HouseholdDevicesPage({ params }: PageProps) {
         </p>
 
         {/* Per-household nav tabs */}
-        <HouseholdNavTabs householdId={householdId} />
+        <HouseholdNavTabs householdId={householdId} role="OWNER" />
 
         {!household.homeAssistant && (
           <p

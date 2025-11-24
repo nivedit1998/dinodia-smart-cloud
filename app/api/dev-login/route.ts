@@ -24,7 +24,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  const res = NextResponse.redirect(new URL('/households', req.url));
+  // Landlords go to households list; tenants go to first assigned household dashboard
+  let redirectTarget = '/households';
+  if (user.role === 'TENANT') {
+    const membership = await prisma.householdMember.findFirst({
+      where: { userId: user.id },
+      orderBy: { householdId: 'asc' },
+      select: { householdId: true },
+    });
+
+    if (membership) {
+      redirectTarget = `/households/${membership.householdId}/dashboard`;
+    }
+  }
+
+  const res = NextResponse.redirect(new URL(redirectTarget, req.url));
   res.cookies.set('userId', String(user.id), {
     path: '/',
     httpOnly: true,

@@ -1,12 +1,15 @@
 // app/households/[id]/members/page.tsx
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getDevicesWithMetadata } from '@/lib/homeAssistant';
 import { revalidatePath } from 'next/cache';
 import {
   type LabelCategory,
   labelDisplayName,
 } from '@/lib/labelCatalog';
+import { getCurrentUser } from '@/lib/auth';
+import { getHouseholdAccessInfo } from '@/lib/tenants';
+import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
 
 type PageProps = {
   params: Promise<{
@@ -16,18 +19,17 @@ type PageProps = {
 
 export const dynamic = 'force-dynamic';
 
-// 🔒 In future, plug in your real auth and landlord check here
-async function getCurrentUserId(): Promise<number | null> {
-  const user = await prisma.user.findFirst();
-  return user?.id ?? null;
-}
-
 /**
  * Add or update a household member.
  * If a HouseholdMember already exists for (userId, householdId), we update it.
  */
 export async function addOrUpdateMember(formData: FormData) {
   'use server';
+
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Not authenticated');
+  }
 
   const householdId = Number(formData.get('householdId'));
   const userId = Number(formData.get('userId'));
@@ -46,6 +48,11 @@ export async function addOrUpdateMember(formData: FormData) {
 
   if (!householdId || !userId || !role) {
     throw new Error('Missing required fields');
+  }
+
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
+    throw new Error('Forbidden');
   }
 
   await prisma.householdMember.upsert({
@@ -79,10 +86,20 @@ export async function addOrUpdateMember(formData: FormData) {
 export async function removeMember(formData: FormData) {
   'use server';
 
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Not authenticated');
+  }
+
   const memberId = Number(formData.get('memberId'));
   const householdId = Number(formData.get('householdId'));
 
   if (!memberId) return;
+
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
+    throw new Error('Forbidden');
+  }
 
   await prisma.householdMember.delete({
     where: { id: memberId },
@@ -98,41 +115,9 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
     notFound();
   }
 
-  const currentUserId = await getCurrentUserId();
-  if (!currentUserId) {
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          padding: '40px 24px',
-          background: '#eff6ff',
-          fontFamily:
-            'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-        }}
-      >
-        <div style={{ maxWidth: '960px', margin: '0 auto' }}>
-          <h1
-            style={{
-              fontSize: '1.6rem',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#111827',
-            }}
-          >
-            Members &amp; Access
-          </h1>
-          <p
-            style={{
-              color: '#b91c1c',
-              fontSize: '0.9rem',
-            }}
-          >
-            No user session found. Wire your auth into{' '}
-            <code>getCurrentUserId()</code> to restrict access properly.
-          </p>
-        </div>
-      </main>
-    );
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
   }
 
   const household = await prisma.household.findUnique({
@@ -149,6 +134,11 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
   });
 
   if (!household) {
+    notFound();
+  }
+
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
     notFound();
   }
 
@@ -222,6 +212,7 @@ export default async function HouseholdMembersPage({ params }: PageProps) {
         >
           Members &amp; Access – {household.name}
         </h1>
+        <HouseholdNavTabs householdId={householdId} role="OWNER" />
         <p
           style={{
             marginBottom: '20px',

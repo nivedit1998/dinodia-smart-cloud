@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { getDevicesWithMetadata } from '@/lib/homeAssistant';
 import { HouseholdNavTabs } from '@/app/components/HouseholdNavTabs';
+import { getHouseholdAccessInfo } from '@/lib/tenants';
 
 type PageProps = {
   params: Promise<{
@@ -39,12 +40,8 @@ export default async function HouseholdOverviewPage({ params }: PageProps) {
     notFound();
   }
 
-  // Landlord-only: either the global LANDLORD role or the actual owner of this household
-  const isOwner = household.ownerId === user.id;
-  const isLandlordUser = user.role === 'LANDLORD';
-
-  if (!isOwner && !isLandlordUser) {
-    // Tenants shouldn't see this page
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
     notFound();
   }
 
@@ -136,7 +133,7 @@ export default async function HouseholdOverviewPage({ params }: PageProps) {
         </p>
 
         {/* Per-household tabs (overview isn’t in the tab bar yet, but keeps nav consistent) */}
-        <HouseholdNavTabs householdId={householdId} />
+        <HouseholdNavTabs householdId={householdId} role="OWNER" />
 
         {/* Summary pill */}
         <div

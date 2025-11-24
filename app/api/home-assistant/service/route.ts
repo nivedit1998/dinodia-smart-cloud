@@ -1,8 +1,8 @@
 // app/api/home-assistant/service/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import { getAccessibleDevicesForUser } from '@/lib/tenants';
+import { callHomeAssistantService } from '@/lib/homeAssistant';
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,49 +59,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const haInstance = await prisma.homeAssistantInstance.findUnique({
-      where: { householdId: Number(householdId) },
-    });
-
-    if (!haInstance) {
-      return NextResponse.json(
-        { ok: false, error: 'Home Assistant instance not configured' },
-        { status: 400 },
-      );
-    }
-
-    const url = `${haInstance.baseUrl.replace(/\/$/, '')}/api/services/${domain}/${service}`;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${haInstance.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const result = await callHomeAssistantService(
+      Number(householdId),
+      domain,
+      service,
+      {
         entity_id,
         ...(data || {}),
-      }),
-    });
+      },
+    );
 
-    if (!res.ok) {
-      const text = await res.text();
+    if (!result.ok) {
       console.error(
-        'HA service call failed:',
-        res.status,
-        res.statusText,
-        text,
+        '[Dinodia] HA service call failed',
+        { householdId, entity_id, domain, service, status: result.status },
+        result.error,
       );
       return NextResponse.json(
-        {
-          ok: false,
-          error: `HA service call failed: ${res.status} ${res.statusText}`,
-        },
+        { ok: false, error: result.error ?? 'HA service call failed' },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, status: result.status });
   } catch (err) {
     console.error('Error calling HA service:', err);
     return NextResponse.json(

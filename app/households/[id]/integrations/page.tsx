@@ -27,6 +27,9 @@ export default async function HouseholdIntegrationsPage({ params }: PageProps) {
 
   // Check access (we only really want landlords/owners here)
   const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
+    notFound();
+  }
 
   const household = await prisma.household.findUnique({
     where: { id: householdId },
@@ -41,10 +44,9 @@ export default async function HouseholdIntegrationsPage({ params }: PageProps) {
     notFound();
   }
 
-  const isLandlordView = access.role === 'OWNER';
-
   const ha = household.homeAssistant;
   const spotify = household.spotifyToken;
+  const isLandlordView = true;
 
   return (
     <main
@@ -95,24 +97,7 @@ export default async function HouseholdIntegrationsPage({ params }: PageProps) {
         </p>
 
         {/* Tabs */}
-        <HouseholdNavTabs householdId={householdId} />
-
-        {!isLandlordView && (
-          <div
-            style={{
-              marginBottom: '16px',
-              padding: '10px 12px',
-              borderRadius: '12px',
-              background: '#eff6ff',
-              border: '1px solid #bfdbfe',
-              color: '#1d4ed8',
-              fontSize: '0.85rem',
-            }}
-          >
-            You&apos;re viewing integrations as a tenant. These settings are managed by
-            the landlord or property owner. You can still see what&apos;s connected.
-          </div>
-        )}
+        <HouseholdNavTabs householdId={householdId} role="OWNER" />
 
         {/* Card grid */}
         <div

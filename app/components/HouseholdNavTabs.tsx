@@ -6,17 +6,55 @@ import { usePathname } from 'next/navigation';
 
 type Props = {
   householdId: number;
+  role: 'OWNER' | 'TENANT';
 };
 
 const tabDefs = [
-  { key: 'dashboard', label: 'Room dashboard', href: (id: number) => `/households/${id}/dashboard` },
-  { key: 'devices', label: 'All devices', href: (id: number) => `/households/${id}/devices` },
-  { key: 'tenant-devices', label: 'Tenant view', href: (id: number) => `/households/${id}/tenant-devices` },
-  { key: 'members', label: 'Members & access', href: (id: number) => `/households/${id}/members` },
-  { key: 'integrations', label: 'Integrations', href: (id: number) => `/households/${id}/integrations` },
+  {
+    key: 'dashboard',
+    label: 'Room dashboard',
+    href: (id: number) => `/households/${id}/dashboard`,
+    roles: ['OWNER', 'TENANT'] as const,
+  },
+  {
+    key: 'overview',
+    label: 'Overview',
+    href: (id: number) => `/households/${id}/overview`,
+    roles: ['OWNER'] as const,
+  },
+  {
+    key: 'devices',
+    label: 'All devices',
+    href: (id: number) => `/households/${id}/devices`,
+    roles: ['OWNER'] as const,
+  },
+  {
+    key: 'tenant-devices',
+    label: 'Tenant view',
+    href: (id: number) => `/households/${id}/tenant-devices`,
+    roles: ['OWNER', 'TENANT'] as const,
+  },
+  {
+    key: 'members',
+    label: 'Members & access',
+    href: (id: number) => `/households/${id}/members`,
+    roles: ['OWNER'] as const,
+  },
+  {
+    key: 'scenes',
+    label: 'Scenes',
+    href: (id: number) => `/households/${id}/scenes`,
+    roles: ['OWNER'] as const,
+  },
+  {
+    key: 'integrations',
+    label: 'Integrations',
+    href: (id: number) => `/households/${id}/integrations`,
+    roles: ['OWNER'] as const,
+  },
 ];
 
-export function HouseholdNavTabs({ householdId }: Props) {
+export function HouseholdNavTabs({ householdId, role }: Props) {
   const pathname = usePathname();
 
   return (
@@ -32,7 +70,9 @@ export function HouseholdNavTabs({ householdId }: Props) {
         gap: '4px',
       }}
     >
-      {tabDefs.map((tab) => {
+      {tabDefs
+        .filter((tab) => tab.roles.includes(role))
+        .map((tab) => {
         const href = tab.href(householdId);
         const isActive =
           pathname === href ||

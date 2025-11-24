@@ -2,16 +2,64 @@
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
+import { getCurrentUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { getDevicesWithMetadata } from '@/lib/homeAssistant';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HouseholdsDashboard() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Tenants don’t get a full list; send them to their room dashboard.
+  if (user.role === 'TENANT') {
+    const membership = await prisma.householdMember.findFirst({
+      where: { userId: user.id },
+      orderBy: { householdId: 'asc' },
+      select: { householdId: true },
+    });
+
+    if (membership) {
+      redirect(`/households/${membership.householdId}/dashboard`);
+    }
+  }
+
   const households = await prisma.household.findMany({
+    where: { ownerId: user.id },
     include: {
       homeAssistant: true,
       spotifyToken: true,
+      members: true,
     },
   });
+
+  // Enrich with tenant count and area count (if HA is configured)
+  const summaries = await Promise.all(
+    households.map(async (household) => {
+      let areaCount: number | null = null;
+      if (household.homeAssistant) {
+        const devices = await getDevicesWithMetadata(household.id);
+        if (devices.ok && devices.devices) {
+          const areas = new Set<string>();
+          for (const d of devices.devices) {
+            if (d.areaName) areas.add(d.areaName);
+          }
+          areaCount = areas.size;
+        }
+      }
+
+      const tenantCount =
+        household.members?.filter((m) => m.role === 'TENANT').length ?? 0;
+
+      return {
+        areaCount,
+        tenantCount,
+      };
+    }),
+  );
 
   return (
     <main
@@ -79,12 +127,15 @@ export default async function HouseholdsDashboard() {
               gap: '18px',
             }}
           >
-            {households.map((household) => {
+            {households.map((household, idx) => {
               const haConfigured = Boolean(household.homeAssistant);
               const planLabel =
                 household.plan === 'SINGLE_HOUSEHOLD'
                   ? 'Single-Household'
                   : 'Multi-Tenant HMO';
+              const tenantCount =
+                summaries[idx]?.tenantCount ?? 0;
+              const areaCount = summaries[idx]?.areaCount;
 
               return (
                 <article
@@ -108,16 +159,18 @@ export default async function HouseholdsDashboard() {
                     }}
                   >
                     <div>
-                      <h2
+                      <Link
+                        href={`/households/${household.id}/overview`}
                         style={{
                           fontSize: '1.15rem',
                           fontWeight: 600,
                           margin: 0,
                           color: '#111827',
+                          textDecoration: 'none',
                         }}
                       >
                         {household.name}
-                      </h2>
+                      </Link>
                       <p
                         style={{
                           margin: '4px 0 0',
@@ -143,6 +196,23 @@ export default async function HouseholdsDashboard() {
                     </span>
                   </div>
 
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '0.85rem',
+                      color: '#4b5563',
+                    }}
+                  >
+                    HA: {haConfigured ? 'Connected' : 'Not connected'} · Spotify:{' '}
+                    {household.spotifyToken ? 'Linked' : 'Not linked'} · Tenants:{' '}
+                    {tenantCount} · Areas:{' '}
+                    {areaCount !== null && areaCount !== undefined
+                      ? areaCount
+                      : haConfigured
+                      ? 'loading…'
+                      : 'n/a'}
+                  </p>
+
                   <div
                     style={{
                       display: 'flex',
@@ -155,6 +225,12 @@ export default async function HouseholdsDashboard() {
                       style={actionButtonStyle}
                     >
                       💡 Devices
+                    </Link>
+                    <Link
+                      href={`/households/${household.id}/overview`}
+                      style={actionButtonStyle}
+                    >
+                      📊 Overview
                     </Link>
                     <Link
                       href={`/households/${household.id}/tenant-devices`}

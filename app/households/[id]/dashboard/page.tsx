@@ -84,7 +84,10 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
             Room dashboard
           </h1>
 
-          <HouseholdNavTabs householdId={householdId} />
+          <HouseholdNavTabs
+            householdId={householdId}
+            role={access.role === 'OWNER' ? 'OWNER' : 'TENANT'}
+          />
 
           <div
             style={{
@@ -167,7 +170,10 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
         </p>
 
         {/* Per-household nav tabs */}
-        <HouseholdNavTabs householdId={householdId} />
+        <HouseholdNavTabs
+          householdId={householdId}
+          role={access.role === 'OWNER' ? 'OWNER' : 'TENANT'}
+        />
 
         <TenantRoomDashboard
           householdId={householdId}

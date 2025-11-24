@@ -1,8 +1,10 @@
 // app/households/[id]/home-assistant/page.tsx
 import { prisma } from '@/lib/prisma';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import TestConnection from './TestConnection';
+import { getCurrentUser } from '@/lib/auth';
+import { getHouseholdAccessInfo } from '@/lib/tenants';
 
 type PageProps = {
   params: Promise<{
@@ -19,6 +21,11 @@ export default async function HomeAssistantConfigPage({ params }: PageProps) {
     notFound();
   }
 
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
   const household = await prisma.household.findUnique({
     where: { id: householdId },
     include: {
@@ -31,8 +38,23 @@ export default async function HomeAssistantConfigPage({ params }: PageProps) {
     notFound();
   }
 
-    async function saveHomeAssistant(formData: FormData) {
+  const access = await getHouseholdAccessInfo(householdId, user.id);
+  if (access.role !== 'OWNER') {
+    notFound();
+  }
+
+  async function saveHomeAssistant(formData: FormData) {
     'use server';
+
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      throw new Error('Not authenticated');
+    }
+
+    const saveAccess = await getHouseholdAccessInfo(householdId, currentUser.id);
+    if (saveAccess.role !== 'OWNER') {
+      throw new Error('Forbidden');
+    }
 
     const rawBaseUrl = (formData.get('baseUrl') as string) ?? '';
     const rawAccessToken = (formData.get('accessToken') as string) ?? '';
