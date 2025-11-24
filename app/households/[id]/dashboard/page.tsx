@@ -41,6 +41,12 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
     notFound();
   }
 
+  // Fallback role for when device access fails to load
+  const fallbackRole: 'OWNER' | 'TENANT' =
+    user.role === 'LANDLORD' || household.ownerId === user.id
+      ? 'OWNER'
+      : 'TENANT';
+
   const result: AccessibleDevicesResult = await getAccessibleDevicesForUser(
     householdId,
     user.id,
@@ -86,7 +92,7 @@ export default async function HouseholdDashboardPage({ params }: PageProps) {
 
           <HouseholdNavTabs
             householdId={householdId}
-            role={access.role === 'OWNER' ? 'OWNER' : 'TENANT'}
+            role={fallbackRole}
           />
 
           <div
