@@ -1,8 +1,12 @@
 // app/households/[id]/tenant-devices/page.tsx
-import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
-import { getAccessibleDevicesForUser } from '@/lib/tenants';
-import { DevicesTableWithFilters } from '@/app/components/DevicesTableWithFilters';
+import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
+import {
+  getAccessibleDevicesForUser,
+  HouseholdAccessRole,
+} from '@/lib/tenants';
+import { TenantDevicesGrid } from '@/app/components/TenantDevicesGrid';
 
 type PageProps = {
   params: Promise<{
@@ -12,14 +16,6 @@ type PageProps = {
 
 export const dynamic = 'force-dynamic';
 
-// 🔐 Replace this with your real auth logic
-async function getCurrentUserId(): Promise<number | null> {
-  // TODO: integrate with your auth (Supabase, NextAuth, etc.)
-  // For now, this just grabs the first user in the DB to make the page work.
-  const user = await prisma.user.findFirst();
-  return user?.id ?? null;
-}
-
 export default async function TenantDevicesPage({ params }: PageProps) {
   const { id } = await params;
   const householdId = Number(id);
@@ -27,9 +23,9 @@ export default async function TenantDevicesPage({ params }: PageProps) {
     notFound();
   }
 
-  const userId = await getCurrentUserId();
-  if (!userId) {
-    // You might want to redirect to /login instead
+  const user = await getCurrentUser();
+
+  if (!user) {
     return (
       <main
         style={{
@@ -40,37 +36,48 @@ export default async function TenantDevicesPage({ params }: PageProps) {
             'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
         }}
       >
-        <div
-          style={{
-            maxWidth: '960px',
-            margin: '0 auto',
-          }}
-        >
+        <div style={{ maxWidth: '960px', margin: '0 auto' }}>
           <h1
             style={{
-              fontSize: '1.4rem',
+              fontSize: '1.6rem',
               fontWeight: 600,
               marginBottom: '8px',
               color: '#111827',
             }}
           >
-            Tenant devices
+            Tenant Room Dashboard
           </h1>
           <p
             style={{
-              color: '#b91c1c',
               fontSize: '0.9rem',
+              color: '#6b7280',
+              marginBottom: '12px',
             }}
           >
-            No user session found. Plug in your auth (Supabase/NextAuth/etc.) in
-            <code style={{ marginLeft: 4 }}>getCurrentUserId()</code>.
+            You&apos;re not logged in. Go to the login page to choose a
+            user (owner or tenant).
           </p>
+          <a
+            href="/login"
+            style={{
+              display: 'inline-flex',
+              padding: '8px 14px',
+              borderRadius: '9999px',
+              background: '#4f46e5',
+              color: '#ffffff',
+              fontSize: '0.85rem',
+              textDecoration: 'none',
+              boxShadow:
+                '0 10px 20px rgba(79, 70, 229, 0.25)',
+            }}
+          >
+            Go to login
+          </a>
         </div>
       </main>
     );
   }
 
-  // Check household exists
   const household = await prisma.household.findUnique({
     where: { id: householdId },
   });
@@ -81,50 +88,15 @@ export default async function TenantDevicesPage({ params }: PageProps) {
 
   const { access, devices } = await getAccessibleDevicesForUser(
     householdId,
-    userId,
+    user.id,
   );
 
-  if (access.role === 'NONE') {
-    return (
-      <main
-        style={{
-          minHeight: '100vh',
-          padding: '40px 24px',
-          background: '#eff6ff',
-          fontFamily:
-            'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-        }}
-      >
-        <div
-          style={{
-            maxWidth: '960px',
-            margin: '0 auto',
-          }}
-        >
-          <h1
-            style={{
-              fontSize: '1.4rem',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#111827',
-            }}
-          >
-            Tenant devices
-          </h1>
-          <p
-            style={{
-              color: '#b91c1c',
-              fontSize: '0.9rem',
-            }}
-          >
-            You don&apos;t have access to this household. Ask your landlord to
-            add you as a tenant in Dinodia Cloud and assign you a Home
-            Assistant <strong>Area</strong> (for example, &quot;Room 1&quot;).
-          </p>
-        </div>
-      </main>
-    );
-  }
+  const role: HouseholdAccessRole = access.role;
+
+  // Primary area = membership areaFilter, else first device's area
+  const areaName =
+    access.areaFilter ??
+    (devices.length > 0 ? devices[0].areaName ?? null : null);
 
   return (
     <main
@@ -136,12 +108,7 @@ export default async function TenantDevicesPage({ params }: PageProps) {
           'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
-      <div
-        style={{
-          maxWidth: '960px',
-          margin: '0 auto',
-        }}
-      >
+      <div style={{ maxWidth: '960px', margin: '0 auto' }}>
         <a
           href="/households"
           style={{
@@ -160,15 +127,14 @@ export default async function TenantDevicesPage({ params }: PageProps) {
 
         <h1
           style={{
-            fontSize: '1.6rem',
+            fontSize: '1.8rem',
             fontWeight: 600,
             marginBottom: '4px',
             color: '#111827',
           }}
         >
-          Your devices in {household.name}
+          Room Dashboard – {household.name}
         </h1>
-
         <p
           style={{
             marginBottom: '16px',
@@ -176,42 +142,52 @@ export default async function TenantDevicesPage({ params }: PageProps) {
             fontSize: '0.9rem',
           }}
         >
-          You&apos;re logged in as a{' '}
-          <strong>{access.role === 'OWNER' ? 'Owner' : 'Tenant'}</strong>.{' '}
-          {access.role === 'TENANT' && access.areaFilter && (
-            <>
-              You can only see devices that are in the Home Assistant{' '}
-              <strong>Area</strong>:{' '}
-              <code>{access.areaFilter}</code>.
-            </>
-          )}
-          {access.role === 'TENANT' && !access.areaFilter && (
-            <>
-              Your account has tenant access but no Area has been assigned yet.
-              Ask your landlord to set an <code>areaFilter</code> for your
-              membership in Dinodia Cloud.
-            </>
-          )}
+          This view is designed for tenants. It shows only the devices in
+          their assigned <strong>Home Assistant Area</strong> and only
+          devices that have <strong>labels</strong> (e.g. &quot;Main
+          light&quot;, &quot;Blinds&quot;). Use labels to create neat,
+          human-friendly controls.
         </p>
 
-        {devices.length > 0 ? (
-          <DevicesTableWithFilters
-            householdId={householdId}
-            devices={devices as any}
-          />
-        ) : (
-          <p
+        {role === 'NONE' && (
+          <div
             style={{
-              marginTop: '12px',
-              fontSize: '0.9rem',
-              color: '#6b7280',
+              marginBottom: '16px',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              background: '#fef2f2',
+              color: '#b91c1c',
+              fontSize: '0.85rem',
             }}
           >
-            No devices are visible for your account yet. Your landlord may need
-            to ensure entities are assigned to the correct Home Assistant
-            <strong> Area</strong> (for example, &quot;Room 1&quot;) that
-            matches your tenant configuration.
-          </p>
+            You don&apos;t currently have access to this household. Make
+            sure there&apos;s a HouseholdMember record for this user.
+          </div>
+        )}
+
+        {devices.length === 0 && role !== 'NONE' && (
+          <div
+            style={{
+              marginBottom: '16px',
+              padding: '10px 12px',
+              borderRadius: '12px',
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              fontSize: '0.85rem',
+            }}
+          >
+            No labelled devices found for your area yet. Add devices and
+            labels in Home Assistant, then refresh this page.
+          </div>
+        )}
+
+        {devices.length > 0 && role !== 'NONE' && (
+          <TenantDevicesGrid
+            householdId={householdId}
+            areaName={areaName}
+            role={role === 'OWNER' ? 'OWNER' : 'TENANT'}
+            devices={devices}
+          />
         )}
       </div>
     </main>

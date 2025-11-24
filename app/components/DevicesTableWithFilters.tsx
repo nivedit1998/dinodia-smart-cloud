@@ -1,229 +1,151 @@
+// app/components/DevicesTableWithFilters.tsx
 'use client';
 
 import { useMemo, useState } from 'react';
-import { DeviceToggleButton } from '@/app/components/DeviceToggleButton';
+import type { DinodiaDevice } from '@/lib/homeAssistant';
+import { DeviceActionControls } from '@/app/components/DeviceActionControls';
 
-type UiDevice = {
-  entityId: string;
-  state: string;
-  domain: string;
-  friendlyName: string;
-  areaName?: string | null;
-  labels?: string[];
-};
-
-type DevicesTableWithFiltersProps = {
+type Props = {
   householdId: number;
-  devices: UiDevice[];
+  devices: DinodiaDevice[];
 };
 
-const DOMAIN_ORDER = ['light', 'switch', 'cover', 'sensor', 'binary_sensor'];
+const DOMAIN_LABELS: Record<string, string> = {
+  light: 'Lights',
+  switch: 'Switches',
+  cover: 'Blinds / Covers',
+  sensor: 'Sensors',
+  binary_sensor: 'Binary Sensors',
+  media_player: 'Media Players',
+  fan: 'Fans',
+};
 
-export function DevicesTableWithFilters({
-  householdId,
-  devices,
-}: DevicesTableWithFiltersProps) {
-  const [selectedArea, setSelectedArea] = useState<string>('all');
-  const [selectedLabel, setSelectedLabel] = useState<string>('all');
-  const [search, setSearch] = useState<string>('');
+export function DevicesTableWithFilters({ householdId, devices }: Props) {
+  const [search, setSearch] = useState('');
+  const [domainFilter, setDomainFilter] = useState<string>('all');
+  const [areaFilter, setAreaFilter] = useState<string>('all');
 
-  const { sortedDevices, areas, labels } = useMemo(() => {
-    // Unique areas
-    const areaSet = new Set<string>();
-    // Unique labels
-    const labelSet = new Set<string>();
+  const allDomains = useMemo(
+    () =>
+      Array.from(
+        new Set(devices.map((d) => d.domain).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b)),
+    [devices],
+  );
 
-    for (const d of devices) {
-      if (d.areaName) {
-        areaSet.add(d.areaName);
+  const allAreas = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          devices
+            .map((d) => d.areaName || '')
+            .filter((a) => a && a.trim().length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [devices],
+  );
+
+  const filtered = useMemo(() => {
+    return devices.filter((d) => {
+      if (domainFilter !== 'all' && d.domain !== domainFilter) {
+        return false;
       }
-      if (Array.isArray(d.labels)) {
-        for (const label of d.labels) {
-          if (label) labelSet.add(label);
-        }
+
+      if (areaFilter !== 'all') {
+        if (!d.areaName || d.areaName !== areaFilter) return false;
       }
-    }
 
-    const areas = Array.from(areaSet).sort((a, b) => a.localeCompare(b));
-    const labels = Array.from(labelSet).sort((a, b) => a.localeCompare(b));
+      if (!search.trim()) return true;
 
-    // Sort devices by domain priority, then area, then friendly name
-    const sorted = [...devices].sort((a, b) => {
-      const ai = DOMAIN_ORDER.indexOf(a.domain);
-      const bi = DOMAIN_ORDER.indexOf(b.domain);
-      const ad = ai === -1 ? 999 : ai;
-      const bd = bi === -1 ? 999 : bi;
-      if (ad !== bd) return ad - bd;
-
-      const an = a.areaName ?? '';
-      const bn = b.areaName ?? '';
-      if (an !== bn) return an.localeCompare(bn);
-
-      return a.friendlyName.localeCompare(b.friendlyName);
+      const term = search.toLowerCase();
+      return (
+        d.friendlyName.toLowerCase().includes(term) ||
+        d.entityId.toLowerCase().includes(term) ||
+        (d.areaName && d.areaName.toLowerCase().includes(term)) ||
+        (d.labels || []).some((label) =>
+          label.toLowerCase().includes(term),
+        )
+      );
     });
+  }, [devices, search, domainFilter, areaFilter]);
 
-    return {
-      sortedDevices: sorted,
-      areas,
-      labels,
-    };
-  }, [devices]);
+  // Domain ordering: lights & switches first
+  const domainOrder = ['light', 'switch', 'cover', 'media_player', 'fan'];
 
-  const filteredDevices = useMemo(() => {
-    return sortedDevices.filter((d) => {
-      if (selectedArea !== 'all') {
-        if (!d.areaName || d.areaName !== selectedArea) return false;
-      }
+  filtered.sort((a, b) => {
+    const ai = domainOrder.indexOf(a.domain);
+    const bi = domainOrder.indexOf(b.domain);
+    const ad = ai === -1 ? 999 : ai;
+    const bd = bi === -1 ? 999 : bi;
+    if (ad !== bd) return ad - bd;
 
-      if (selectedLabel !== 'all') {
-        if (!d.labels || !d.labels.includes(selectedLabel)) return false;
-      }
+    const an = a.areaName ?? '';
+    const bn = b.areaName ?? '';
+    if (an !== bn) return an.localeCompare(bn);
 
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        const name = d.friendlyName.toLowerCase();
-        const id = d.entityId.toLowerCase();
-        if (!name.includes(q) && !id.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [sortedDevices, selectedArea, selectedLabel, search]);
+    return a.friendlyName.localeCompare(b.friendlyName);
+  });
 
   return (
-    <>
-      {/* Filters */}
+    <div>
+      {/* Filter bar */}
       <div
         style={{
-          marginBottom: '16px',
+          marginBottom: '12px',
           display: 'flex',
           flexWrap: 'wrap',
           gap: '8px',
           alignItems: 'center',
         }}
       >
-        {/* Area filter */}
-        <div
+        <input
+          type="text"
+          placeholder="Search by name, entity ID, or area…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            minWidth: 160,
+            flex: 1,
+            minWidth: '180px',
+            padding: '6px 10px',
+            borderRadius: '9999px',
+            border: '1px solid #d1d5db',
+            fontSize: '0.85rem',
           }}
-        >
-          <label
-            style={{
-              fontSize: '0.8rem',
-              color: '#6b7280',
-            }}
-          >
-            Area
-          </label>
-          <select
-            value={selectedArea}
-            onChange={(e) => setSelectedArea(e.target.value)}
-            style={{
-              borderRadius: '9999px',
-              border: '1px solid #e5e7eb',
-              padding: '4px 10px',
-              fontSize: '0.85rem',
-              background: '#ffffff',
-            }}
-          >
-            <option value="all">All areas</option>
-            {areas.map((area) => (
-              <option key={area} value={area}>
-                {area}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Label filter */}
-        <div
+        />
+        <select
+          value={domainFilter}
+          onChange={(e) => setDomainFilter(e.target.value)}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            minWidth: 180,
-          }}
-        >
-          <label
-            style={{
-              fontSize: '0.8rem',
-              color: '#6b7280',
-            }}
-          >
-            Label
-          </label>
-          <select
-            value={selectedLabel}
-            onChange={(e) => setSelectedLabel(e.target.value)}
-            style={{
-              borderRadius: '9999px',
-              border: '1px solid #e5e7eb',
-              padding: '4px 10px',
-              fontSize: '0.85rem',
-              background: '#ffffff',
-            }}
-          >
-            <option value="all">All labels</option>
-            {labels.map((label) => (
-              <option key={label} value={label}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Search */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            flex: '1 1 220px',
-            minWidth: 220,
-          }}
-        >
-          <label
-            style={{
-              fontSize: '0.8rem',
-              color: '#6b7280',
-            }}
-          >
-            Search
-          </label>
-          <input
-            type="text"
-            placeholder="Search by name or entity id…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              borderRadius: '9999px',
-              border: '1px solid #e5e7eb',
-              padding: '4px 10px',
-              fontSize: '0.85rem',
-              background: '#ffffff',
-            }}
-          />
-        </div>
-
-        {/* Count */}
-        <div
-          style={{
-            marginLeft: 'auto',
+            padding: '6px 10px',
+            borderRadius: '9999px',
+            border: '1px solid #d1d5db',
             fontSize: '0.8rem',
-            color: '#6b7280',
-            paddingTop: '18px',
           }}
         >
-          Showing{' '}
-          <span style={{ fontWeight: 600, color: '#111827' }}>
-            {filteredDevices.length}
-          </span>{' '}
-          of {sortedDevices.length}
-        </div>
+          <option value="all">All types</option>
+          {allDomains.map((domain) => (
+            <option key={domain} value={domain}>
+              {DOMAIN_LABELS[domain] || domain}
+            </option>
+          ))}
+        </select>
+        <select
+          value={areaFilter}
+          onChange={(e) => setAreaFilter(e.target.value)}
+          style={{
+            padding: '6px 10px',
+            borderRadius: '9999px',
+            border: '1px solid #d1d5db',
+            fontSize: '0.8rem',
+          }}
+        >
+          <option value="all">All areas</option>
+          {allAreas.map((area) => (
+            <option key={area} value={area}>
+              {area}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -241,7 +163,7 @@ export function DevicesTableWithFilters({
             width: '100%',
             borderCollapse: 'collapse',
             fontSize: '0.85rem',
-            minWidth: '820px',
+            minWidth: '920px',
           }}
         >
           <thead>
@@ -326,7 +248,7 @@ export function DevicesTableWithFilters({
             </tr>
           </thead>
           <tbody>
-            {filteredDevices.map((d) => (
+            {filtered.map((d) => (
               <tr key={d.entityId}>
                 <td
                   style={{
@@ -412,7 +334,7 @@ export function DevicesTableWithFilters({
                     borderBottom: '1px solid #f3f4f6',
                   }}
                 >
-                  <DeviceToggleButton
+                  <DeviceActionControls
                     householdId={householdId}
                     entityId={d.entityId}
                     domain={d.domain}
@@ -421,25 +343,21 @@ export function DevicesTableWithFilters({
                 </td>
               </tr>
             ))}
-
-            {filteredDevices.length === 0 && (
-              <tr>
-                <td
-                  colSpan={7}
-                  style={{
-                    padding: '16px 8px',
-                    textAlign: 'center',
-                    color: '#9ca3af',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  No devices match the current filters.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
+
+        {filtered.length === 0 && (
+          <p
+            style={{
+              marginTop: '12px',
+              fontSize: '0.9rem',
+              color: '#6b7280',
+            }}
+          >
+            No devices match the current filters.
+          </p>
+        )}
       </div>
-    </>
+    </div>
   );
 }

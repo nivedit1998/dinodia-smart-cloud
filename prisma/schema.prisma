@@ -60,6 +60,10 @@ model HouseholdMember {
   /// TENANTs will only see entities whose areaName matches this.
   areaFilter  String?
 
+  /// Optional label filter – comma-separated list of HA label names.
+  /// If set, tenant will only see devices whose labels intersect this list.
+  labelFilterCsv String?
+
   user      User      @relation(fields: [userId], references: [id])
   household Household @relation(fields: [householdId], references: [id])
 
