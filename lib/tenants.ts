@@ -10,10 +10,16 @@ export type HouseholdAccessInfo = {
   labelFilterCsv: string | null;
 };
 
-export type AccessibleDevicesResult = {
-  access: HouseholdAccessInfo;
-  devices: DinodiaDevice[];
-};
+export type AccessibleDevicesResult =
+  | {
+      ok: true;
+      access: HouseholdAccessInfo;
+      devices: DinodiaDevice[];
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 function normalizeLabelCsv(labelFilterCsv: string | null) {
   if (!labelFilterCsv) return [] as string[];
@@ -87,16 +93,41 @@ export async function getAccessibleDevicesForUser(
   householdId: number,
   userId: number,
 ): Promise<AccessibleDevicesResult> {
-  const access = await getHouseholdAccessInfo(householdId, userId);
-  const result = await getDevicesWithMetadata(householdId);
+  try {
+    const access = await getHouseholdAccessInfo(householdId, userId);
+    const result = await getDevicesWithMetadata(householdId);
 
-  if (!result.ok || !result.devices) {
-    throw new Error(result.error ?? 'Failed to load devices for household');
+    if (!result.ok || !result.devices) {
+      return {
+        ok: false,
+        error: result.error ?? 'Failed to load devices for household',
+      };
+    }
+
+    const filtered = result.devices.filter((device) => {
+      const matchesAccess = deviceMatchesFilters(
+        device,
+        access.areaFilter,
+        access.labelFilterCsv,
+      );
+
+      if (!matchesAccess) return false;
+
+      if (access.role === 'TENANT') {
+        return Boolean(device.labels && device.labels.length > 0);
+      }
+
+      return true;
+    });
+
+    return { ok: true, access, devices: filtered };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unexpected error fetching accessible devices',
+    };
   }
-
-  const devices = result.devices.filter((device) =>
-    deviceMatchesFilters(device, access.areaFilter, access.labelFilterCsv),
-  );
-
-  return { access, devices };
 }

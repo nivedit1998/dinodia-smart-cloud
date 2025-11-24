@@ -86,10 +86,62 @@ export default async function TenantDevicesPage({ params }: PageProps) {
     notFound();
   }
 
-  const { access, devices } = await getAccessibleDevicesForUser(
-    householdId,
-    user.id,
-  );
+  const result = await getAccessibleDevicesForUser(householdId, user.id);
+
+  if (!result.ok) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          padding: '40px 24px',
+          background: '#eff6ff',
+          fontFamily:
+            'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+        }}
+      >
+        <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+          <a
+            href="/households"
+            style={{
+              display: 'inline-flex',
+              marginBottom: '16px',
+              padding: '6px 10px',
+              borderRadius: '9999px',
+              border: '1px solid #e5e7eb',
+              fontSize: '0.85rem',
+              color: '#111827',
+              textDecoration: 'none',
+            }}
+          >
+            ← Back to households
+          </a>
+          <h1
+            style={{
+              fontSize: '1.6rem',
+              fontWeight: 600,
+              marginBottom: '8px',
+              color: '#111827',
+            }}
+          >
+            Tenant Room Dashboard
+          </h1>
+          <div
+            style={{
+              padding: '10px 12px',
+              borderRadius: '12px',
+              background: '#fef2f2',
+              color: '#b91c1c',
+              fontSize: '0.9rem',
+            }}
+          >
+            {result.error || 'Could not load devices for this household.'}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const { access, devices } = result;
 
   const role: HouseholdAccessRole = access.role;
 
