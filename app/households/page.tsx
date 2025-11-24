@@ -244,6 +244,12 @@ export default async function HouseholdsDashboard() {
                     >
                       🔐 Members & access
                     </Link>
+                    <Link
+                      href={`/households/${household.id}/integrations`}
+                      style={actionButtonStyle}
+                    >
+                      🎙 Voice & integrations
+                    </Link>
                   </div>
                 </article>
               );

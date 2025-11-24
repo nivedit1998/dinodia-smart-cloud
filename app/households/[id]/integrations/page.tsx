@@ -468,6 +468,132 @@ export default async function HouseholdIntegrationsPage({ params }: PageProps) {
             </p>
           </div>
         </div>
+
+        <section
+          style={{
+            marginTop: '24px',
+            padding: '16px',
+            borderRadius: '16px',
+            background: '#ffffff',
+            boxShadow: '0 10px 25px rgba(15, 23, 42, 0.06)',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '1rem',
+              fontWeight: 600,
+              marginBottom: '8px',
+              color: '#111827',
+            }}
+          >
+            Voice Assistants
+          </h2>
+          <p
+            style={{
+              fontSize: '0.85rem',
+              color: '#6b7280',
+              marginBottom: '12px',
+            }}
+          >
+            Alexa and Google can control any labelled devices in this household via the
+            Dinodia Smart Cloud voice endpoints.
+          </p>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb',
+                background: '#f9fafb',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  marginBottom: '4px',
+                }}
+              >
+                Alexa Smart Home
+              </h3>
+              <p
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#6b7280',
+                  marginBottom: '6px',
+                }}
+              >
+                Endpoint ready. Configure your Alexa Smart Home skill to call:
+                <br />
+                <code>/api/voice/alexa</code> on your cloud domain.
+              </p>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: '#ecfdf5',
+                  fontSize: '0.75rem',
+                  color: '#15803d',
+                }}
+              >
+                ● Ready for deployment
+              </span>
+            </div>
+
+            <div
+              style={{
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb',
+                background: '#f9fafb',
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  marginBottom: '4px',
+                }}
+              >
+                Google Home
+              </h3>
+              <p
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#6b7280',
+                  marginBottom: '6px',
+                }}
+              >
+                Endpoint ready. Configure a Google Smart Home project and set fulfillment
+                to:
+                <br />
+                <code>/api/voice/google</code> on your cloud domain.
+              </p>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  background: '#ecfdf5',
+                  fontSize: '0.75rem',
+                  color: '#15803d',
+                }}
+              >
+                ● Ready for deployment
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
